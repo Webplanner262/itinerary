@@ -576,7 +576,7 @@ input:focus, select:focus, textarea:focus {
                   ${flag(country)} ${esc(country)}
                 </span>
               </div>
-              <p class="text-xs text-[#6e8a81]">09:00 AM &ndash; 10:00 PM &middot; ${list.length} plan${list.length === 1 ? '' : 's'} &middot; drop cards here to allocate this day</p>
+              <p class="text-xs text-[#6e8a81]">09:00 AM – 10:00 PM · ${list.length} plan${list.length === 1 ? '' : 's'} · drop cards here to allocate this day</p>
             </div>
             <i data-lucide="grip-horizontal" class="w-5 h-5 text-[#91afa1]"></i>
           </div>
@@ -618,7 +618,7 @@ input:focus, select:focus, textarea:focus {
                     class="w-full resize-none bg-transparent text-sm text-[#718984] border-b border-transparent hover:border-[#dce8df] focus:border-[#2d7b70] py-1">${esc(s.description)}</textarea>
           <div class="flex flex-wrap items-center gap-2">
             <span class="badge-${esc(s.country)} text-[10px] uppercase tracking-wider px-2 py-1 rounded-full inline-flex items-center gap-1">
-              ${flag(s.country)} ${esc(s.country)} &middot; ${esc(s.currency)}
+              ${flag(s.country)} ${esc(s.country)} · ${esc(s.currency)}
             </span>
             <label class="text-[10px] font-bold text-[#78918a] flex items-center gap-1">
               DURATION
@@ -627,7 +627,7 @@ input:focus, select:focus, textarea:focus {
                      class="w-16 rounded-lg border border-[#dce8df] p-1.5 text-xs text-center">
             </label>
             <span class="text-xs text-[#9aaba5]">
-              ${s.cost ? '&middot; ' + esc(s.currency) + ' ' + Number(s.cost).toLocaleString() : '&middot; Free'}
+              ${s.cost ? '· ' + esc(s.currency) + ' ' + Number(s.cost).toLocaleString() : '· Free'}
             </span>
           </div>
         </div>

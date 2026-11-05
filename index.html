@@ -37,6 +37,10 @@ input:focus, select:focus, textarea:focus {
 .plan-card { animation: fadeUp .28s ease both; }
 .day-card { transition: transform .2s ease, box-shadow .2s ease; }
 .day-card:hover { transform: translateY(-2px); }
+.day-body { display: block; }
+.day-collapsed { display: none !important; }
+.day-block.is-collapsed .day-card { opacity: .8; }
+.day-block.is-collapsed .day-card:hover { transform: none; }
 </style>
 </head>
 <body class="min-h-screen text-[#173b3d]">
@@ -128,7 +132,7 @@ input:focus, select:focus, textarea:focus {
             </div>
             <div class="text-xs text-[#7d9d91]" id="stop-count">0 plans pinned</div>
           </div>
-          <div id="itinerary" class="space-y-5"></div>
+          <div id="itinerary" class="grid gap-4 [grid-template-columns:repeat(auto-fill,minmax(min(100%,260px),1fr))]"></div>
         </section>
 
         <aside class="paper rounded-3xl border border-[#dce8df] shadow-soft p-5 lg:sticky lg:top-5">
@@ -224,11 +228,12 @@ input:focus, select:focus, textarea:focus {
   let stops = [];
   let idSequence = 0;
   let draggedId = null;
+  let dayCollapsed = {};
 
   /* ------------------ PERSISTENCE (LocalStorage) ------------------ */
   function saveStops() {
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify({ stops: stops, idSequence: idSequence }));
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({ stops: stops, idSequence: idSequence, dayCollapsed: dayCollapsed }));
     } catch (e) { console.warn('saveStops failed', e); }
   }
 
@@ -255,6 +260,7 @@ input:focus, select:focus, textarea:focus {
         };
       });
       idSequence = Number(data.idSequence) || stops.reduce(function (m, s) { return Math.max(m, s.id); }, 0);
+      dayCollapsed = (data.dayCollapsed && typeof data.dayCollapsed === 'object') ? data.dayCollapsed : {};
     } catch (e) { console.warn('loadStops failed', e); stops = []; idSequence = 0; }
   }
 
@@ -537,6 +543,14 @@ input:focus, select:focus, textarea:focus {
       el.addEventListener("dragstart", function () { draggedId = Number(el.dataset.id); el.classList.add("dragging"); });
       el.addEventListener("dragend", function () { el.classList.remove("dragging"); });
     });
+    document.querySelectorAll('[data-day-toggle]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var day = btn.getAttribute('data-day-toggle');
+        dayCollapsed[day] = !dayCollapsed[day];
+        saveStops();
+        render();
+      });
+    });
   }
 
   /* ------------------ templates, reset, meal helper ------------------ */
@@ -581,34 +595,29 @@ input:focus, select:focus, textarea:focus {
     var box = document.getElementById("itinerary");
     box.innerHTML = days.map(function (day) {
       var list = grouped[day].sort(function (a, b) {
-  return a.sort_order - b.sort_order || String(a.time).localeCompare(String(b.time));
-});
-
-var title = list[0].day_title || "Custom Excursion";
-var country = list[0].day_country || list[0].country || "Switzerland";
+        return a.sort_order - b.sort_order || String(a.time).localeCompare(String(b.time));
+      });
+      var title = list[0].day_title || "Custom Excursion";
       var country = list[0].day_country || list[0].country || "Switzerland";
-
+      var collapsed = dayCollapsed[day];
       return `
-        <article class="day-card paper rounded-3xl border border-[#dce8df] shadow-soft overflow-hidden">
-          <div class="px-5 sm:px-6 py-4 bg-[#edf5ef] flex items-center gap-4">
-            <div class="w-12 h-12 rounded-2xl bg-[#2d7b70] text-white flex flex-col items-center justify-center leading-none">
-              <span class="text-[9px] uppercase tracking-widest">Day</span>
-              <strong class="text-xl">${day}</strong>
+        <div class="day-block ${collapsed ? 'is-collapsed' : ''}"><!-- day ${day} --></div>
+        <article class="day-card paper rounded-3xl border border-[#dce8df] shadow-soft flex flex-col overflow-hidden">
+          <div class="day-head px-3 sm:px-4 py-2.5 bg-[#edf5ef] border-b border-[#dce8df] flex items-center gap-2">
+            <div class="flex items-baseline gap-1 shrink-0"><span class="text-[9px] uppercase tracking-widest font-bold text-[#7d9d91]">Day</span><strong class="text-lg leading-none">${esc(day)}</strong></div>
+            <button type="button" data-day-toggle="${day}" aria-expanded="${!collapsed}" aria-controls="day-body-${day}" class="text-[#5b7a70] hover:text-[#2d7b70] p-1 rounded-lg -ml-1 shrink-0" title="${collapsed ? 'Expand' : 'Collapse'} this day"><i data-lucide="menu" class="w-4 h-4"></i></button>
+            <div class="flex-1 min-w-0 h-4 flex items-center border-l border-[#cddfdc] px-2"><i data-lucide="chevron-${collapsed ? 'down' : 'up'}" class="w-4 h-4 text-[#7d9d91]"></i></div>
+            <div class="flex items-center gap-1.5 shrink-0 flex-wrap justify-end">
+              <span class="badge-${esc(country)} text-[9px] uppercase tracking-wider px-2 py-0.5 rounded-full" title="${esc(country)}">${flag(country)}</span>
+              <span class="text-[10px] text-[#6e8a81]">${list.length}</span>
             </div>
-            <div class="flex-1">
-              <div class="flex flex-wrap items-center gap-2">
-                <h4 class="font-bold text-lg">${esc(title)}</h4>
-                <span class="text-[10px] uppercase tracking-wider px-2 py-1 rounded-full bg-white/70 text-[#28645d]">
-                  ${flag(country)} ${esc(country)}
-                </span>
-              </div>
-              <p class="text-xs text-[#6e8a81]">09:00 AM – 10:00 PM · ${list.length} plan${list.length === 1 ? '' : 's'} · drop cards here to allocate this day</p>
-            </div>
-            <i data-lucide="grip-horizontal" class="w-5 h-5 text-[#91afa1]"></i>
           </div>
-          <div class="p-4 sm:p-6 space-y-3 min-h-[90px]" data-day="${day}"
-               ondragover="allowDrop(event)" ondrop="dropOnDay(event,${day})">
-            ${list.map(cardHtml).join('')}
+          <div id="day-body-${day}" class="day-body ${collapsed ? 'day-collapsed' : ''}">
+            <div class="px-4 sm:px-5 pt-3"><h4 class="font-bold text-[15px] truncate">${esc(title)}</h4></div>
+            <div class="p-3 sm:p-4 space-y-2 min-h-[120px]" data-day="${day}"
+                 ondragover="allowDrop(event)" ondrop="dropOnDay(event,${day})">
+              ${list.map(cardHtml).join('') || `<div class="text-[11px] text-[#809891] text-center p-3 rounded-lg border border-dashed border-[#cbded3]">Drop cards here</div>`}
+            </div>
           </div>
         </article>`;
     }).join('') || `
@@ -752,3 +761,4 @@ var country = list[0].day_country || list[0].country || "Switzerland";
 </script>
 </body>
 </html>
+

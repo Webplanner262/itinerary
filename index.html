@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Switzerland and Austria Trip! · Itinerary Planner</title>
+<title>Alpine Atlas · Itinerary Planner</title>
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="https://unpkg.com/lucide@latest"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -472,6 +472,30 @@ input:focus, select:focus, textarea:focus {
     flash('Timeline fitted');
   };
 
+  window.editCost = function (id, value) {
+    var cost = Math.max(0, parseFloat(value) || 0);
+    updateStop(id, { cost: cost });
+    renderStats();
+    render();
+    flash('Cost saved');
+  };
+
+  window.editCurrency = function (id, value) {
+    if (!value) return;
+    updateStop(id, { currency: value });
+    renderStats();
+    render();
+    flash('Currency saved');
+  };
+
+  window.addPlan = function (day) {
+    document.getElementById('f-day').value = day;
+    var fDay = document.getElementById('f-day');
+    if (fDay) fDay.focus();
+    var el = document.querySelector('aside.paper');
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  };
+
   window.editTime = function (id, value) {
     var s = stops.find(function (x) { return Number(x.id) === Number(id); });
     if (!s || !value) return;
@@ -641,25 +665,37 @@ input:focus, select:focus, textarea:focus {
           <span class="text-[10px] text-[#8aa199]">${s.duration_minutes} min</span>
         </div>
         <div class="flex-1 min-w-0 space-y-2">
-          <input data-field="location" data-id="${s.id}" value="${esc(s.location)}"
-                 onchange="editStop(${s.id},'location',this.value)"
-                 class="w-full bg-transparent font-bold text-[#173b3d] border-b border-transparent hover:border-[#dce8df] focus:border-[#2d7b70] py-1">
+          <div class="flex items-center gap-1">
+            <input data-field="location" data-id="${s.id}" value="${esc(s.location)}"
+                   onchange="editStop(${s.id},'location',this.value)"
+                   class="w-full min-w-0 bg-transparent font-bold text-[#173b3d] border-b border-transparent hover:border-[#dce8df] focus:border-[#2d7b70] py-1">
+            <button type="button" onclick="addPlan(${s.day})" title="Add a plan to this day"
+                    class="shrink-0 w-5 h-5 rounded-md border border-[#cddfdc] text-[#6b8876] hover:bg-[#edf5ef] hover:border-[#2d7b70] hover:text-[#2d7b70] flex items-center justify-center">
+              <i data-lucide="plus" class="w-3 h-3"></i>
+            </button>
+          </div>
           <textarea data-field="description" data-id="${s.id}" rows="2"
                     onchange="editStop(${s.id},'description',this.value)"
                     class="w-full resize-none bg-transparent text-sm text-[#718984] border-b border-transparent hover:border-[#dce8df] focus:border-[#2d7b70] py-1">${esc(s.description)}</textarea>
           <div class="flex flex-wrap items-center gap-2">
             <span class="badge-${esc(s.country)} text-[10px] uppercase tracking-wider px-2 py-1 rounded-full inline-flex items-center gap-1">
-              ${flag(s.country)} ${esc(s.country)} · ${esc(s.currency)}
+              ${flag(s.country)} ${esc(s.country)}
             </span>
+            <label class="text-[10px] font-bold text-[#78918a] flex items-center gap-1">
+              💰
+              <select onchange="editCurrency(${s.id}, this.value)" class="rounded-md border border-[#dce8df] p-1 text-xs font-bold text-[#2d7b70] bg-white">
+                ${'CHF,EUR,SGD'.split(',').map(function (c) { return '<option value="' + c + '"' + (s.currency === c ? ' selected' : '') + '>' + c + '</option>'; }).join('')}
+              </select>
+              <input type="number" min="0" step="0.01" value="${Number(s.cost) || 0}"
+                     onchange="editCost(${s.id}, this.value)"
+                     class="w-20 rounded-md border border-[#dce8df] p-1 text-xs text-center" placeholder="0" title="Cost">
+            </label>
             <label class="text-[10px] font-bold text-[#78918a] flex items-center gap-1">
               DURATION
               <input type="number" min="15" step="15" value="${s.duration_minutes}"
                      onchange="editDuration(${s.id}, this.value)"
                      class="w-16 rounded-lg border border-[#dce8df] p-1.5 text-xs text-center">
             </label>
-            <span class="text-xs text-[#9aaba5]">
-              ${s.cost ? '· ' + esc(s.currency) + ' ' + Number(s.cost).toLocaleString() : '· Free'}
-            </span>
           </div>
         </div>
         <button onclick="deleteStop(${s.id})" aria-label="Delete plan"

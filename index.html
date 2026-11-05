@@ -1,40 +1,728 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Alpine Atlas · Itinerary Planner</title>
-<script src="https://cdn.tailwindcss.com"></script><script src="https://unpkg.com/lucide@latest"></script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Alpine Atlas · Itinerary Planner</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://unpkg.com/lucide@latest"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet">
 <style>
-@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:wght@600;700&display=swap');
-:root{font-family:'DM Sans',sans-serif} .serif{font-family:'Playfair Display',serif} body{background:#f5f7f4}.mountain{background:linear-gradient(145deg,#123f43,#1a5b5d 52%,#d5e8de)}.paper{background:rgba(255,255,255,.86);backdrop-filter:blur(14px)}.shadow-soft{box-shadow:0 18px 50px rgba(18,63,67,.1)}.grid-lines{background-image:linear-gradient(rgba(255,255,255,.07) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.07) 1px,transparent 1px);background-size:28px 28px}input,select,textarea{outline:none}input:focus,select:focus,textarea:focus{border-color:#2d7b70;box-shadow:0 0 0 3px rgba(45,123,112,.12)}.dragging{opacity:.42;transform:rotate(1deg)}.drop-target{background:#e5f2e9!important;border-color:#2d7b70!important}.timeline-line{background:linear-gradient(#bdd8cb,#2d7b70,#bdd8cb)}
+:root { font-family: 'DM Sans', ui-sans-serif, system-ui, sans-serif; }
+.serif { font-family: 'Playfair Display', ui-serif, Georgia, serif; }
+body { background: #f5f7f4; }
+.mountain { background: linear-gradient(145deg, #123f43, #1a5b5d 52%, #d5e8de); }
+.paper { background: rgba(255,255,255,.86); backdrop-filter: blur(14px); }
+.shadow-soft { box-shadow: 0 18px 50px rgba(18,63,67,.10); }
+.grid-lines {
+  background-image: linear-gradient(rgba(255,255,255,.07) 1px, transparent 1px),
+                   linear-gradient(90deg, rgba(255,255,255,.07) 1px, transparent 1px);
+  background-size: 28px 28px;
+}
+input, select, textarea { outline: none; }
+input:focus, select:focus, textarea:focus {
+  border-color: #2d7b70 !important;
+  box-shadow: 0 0 0 3px rgba(45,123,112,.12);
+}
+.dragging { opacity: .42; transform: rotate(1deg); }
+.drop-target { background: #e5f2e9 !important; border-color: #2d7b70 !important; }
+.timeline-line { background: linear-gradient(#bdd8cb, #2d7b70, #bdd8cb); }
+.badge-Switzerland { background: #e4f1e8; color: #327260; }
+.badge-Austria { background: #fff2d2; color: #9b7324; }
+.badge-Singapore { background: #e0ecf7; color: #2a5580; }
+.badge-Other { background: #eee9f5; color: #5b3f86; }
+@keyframes fadeUp { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+.plan-card { animation: fadeUp .28s ease both; }
+.day-card { transition: transform .2s ease, box-shadow .2s ease; }
+.day-card:hover { transform: translateY(-2px); }
 </style>
 </head>
-<body class="min-h-screen text-[#173b3d]"><div class="min-h-screen lg:flex">
-<aside class="lg:w-[360px] xl:w-[390px] mountain text-white p-6 lg:p-8 relative overflow-hidden"><div class="absolute inset-0 grid-lines opacity-40"></div><div class="relative z-10 flex flex-col min-h-[520px] lg:min-h-screen"><div class="flex items-center gap-3 mb-12"><div class="w-11 h-11 rounded-2xl bg-[#f2c66d] text-[#173b3d] flex items-center justify-center"><i data-lucide="mountain" class="w-6 h-6"></i></div><div><div class="text-[10px] tracking-[.25em] uppercase text-[#b8d9cc]">Travel journal</div><div class="serif text-xl">Alpine Atlas</div></div></div><div class="mt-auto mb-10"><p class="text-[#b8d9cc] text-sm mb-3">A slower way to travel</p><h1 class="serif text-4xl xl:text-5xl leading-[1.08] mb-5">Two countries.<br><span class="text-[#f2c66d]">One beautiful</span><br>itinerary.</h1><p class="text-sm leading-6 text-[#d7e9e0] max-w-xs">Drag your plans between days, shape the duration, and let the timeline arrange itself.</p></div><div class="border-t border-white/20 pt-5 flex items-center justify-between text-xs text-[#b8d9cc]"><span class="flex items-center gap-2"><i data-lucide="move" class="w-4 h-4"></i> Drag to arrange</span><span id="saved-status">Loading…</span></div></div></aside>
-<main class="flex-1 p-5 sm:p-8 lg:p-10 xl:p-14 overflow-y-auto"><div class="max-w-7xl mx-auto">
-<header class="flex flex-col sm:flex-row sm:items-end justify-between gap-5 mb-8"><div><div class="uppercase tracking-[.22em] text-[11px] font-bold text-[#7d9d91] mb-2">Your field notes</div><h2 class="serif text-4xl sm:text-5xl text-[#173b3d]">The Alpine itinerary</h2><p class="text-sm text-[#78918a] mt-2">Write freely. Drag a card into another day. Duration updates fit the day automatically.</p></div><div class="flex gap-2"><button onclick="exportMarkdown()" class="px-4 py-2.5 rounded-xl bg-white border border-[#dce8df] text-sm font-semibold flex items-center gap-2 hover:bg-[#edf5ef]"><i data-lucide="download" class="w-4 h-4"></i> Export</button><button onclick="resetPlan()" class="px-4 py-2.5 rounded-xl bg-[#173b3d] text-white text-sm font-semibold flex items-center gap-2 hover:bg-[#285a5c]"><i data-lucide="rotate-ccw" class="w-4 h-4"></i> Reset</button></div></header>
-<section class="grid xl:grid-cols-[1.15fr_1fr] gap-5 mb-8"><div class="paper rounded-3xl border border-[#dce8df] shadow-soft p-5 sm:p-6"><div class="flex items-center justify-between mb-5"><div><div class="text-[11px] uppercase tracking-widest font-bold text-[#7d9d91]">Currency companion</div><h3 class="serif text-2xl mt-1">Travel budget converter</h3></div><i data-lucide="repeat-2" class="w-5 h-5 text-[#2d7b70]"></i></div><p class="text-sm text-[#6c8580] mb-5">Enter an amount in any currency to see the equivalent in the other two.</p><div class="grid sm:grid-cols-3 gap-3" id="currency-inputs"></div><div class="mt-4 text-[11px] text-[#94aaa2]">Indicative rates · 1 SGD = 0.66 CHF = 0.69 EUR</div></div><div class="paper rounded-3xl border border-[#dce8df] shadow-soft p-5 sm:p-6"><div class="flex items-center justify-between mb-5"><div><div class="text-[11px] uppercase tracking-widest font-bold text-[#7d9d91]">Trip snapshot</div><h3 class="serif text-2xl mt-1">Your route at a glance</h3></div><i data-lucide="compass" class="w-5 h-5 text-[#d89f36]"></i></div><div class="grid grid-cols-3 gap-3" id="stats"></div><div class="mt-5 pt-4 border-t border-[#e4eee7] flex gap-2"><button onclick="loadTemplate('switzerland')" class="flex-1 py-2.5 rounded-xl bg-[#edf5ef] text-[#28645d] text-xs font-bold">Swiss route</button><button onclick="loadTemplate('austria')" class="flex-1 py-2.5 rounded-xl bg-[#fff6df] text-[#916d22] text-xs font-bold">Austrian route</button></div></div></section>
-<div class="grid xl:grid-cols-[1fr_330px] gap-8 items-start"><section><div class="flex items-center justify-between mb-5"><div><div class="text-[11px] uppercase tracking-widest font-bold text-[#7d9d91]">Drag & drop day board</div><h3 class="serif text-3xl mt-1">Plans & places</h3></div><div class="text-xs text-[#7d9d91]" id="stop-count"></div></div><div id="itinerary" class="space-y-5"></div></section>
-<aside class="paper rounded-3xl border border-[#dce8df] shadow-soft p-5 sticky top-5"><div class="flex items-center gap-3 mb-5"><div class="w-10 h-10 rounded-2xl bg-[#edf5ef] flex items-center justify-center text-[#28645d]"><i data-lucide="plus" class="w-5 h-5"></i></div><div><h3 class="font-bold">Add a plan</h3><p class="text-xs text-[#78918a]">The timeline will fit it in</p></div></div><div class="space-y-3"><div class="grid grid-cols-2 gap-3"><label class="text-xs font-bold text-[#66817a]">DAY<input id="f-day" type="number" min="1" value="1" class="mt-1 w-full rounded-xl border border-[#dce8df] bg-white p-3 text-sm"></label><label class="text-xs font-bold text-[#66817a]">START TIME<input id="f-time" type="time" min="09:00" max="22:00" value="09:00" class="mt-1 w-full rounded-xl border border-[#dce8df] bg-white p-3 text-sm"></label></div><label class="text-xs font-bold text-[#66817a]">QUICK MEAL OPTION<select id="f-meal" onchange="applyMeal(this.value)" class="mt-1 w-full rounded-xl border border-[#dce8df] bg-white p-3 text-sm"><option value="">Choose a meal or activity type</option><option value="Hotel breakfast">Hotel breakfast</option><option value="Eat out">Eat out</option><option value="Lunch break">Lunch break</option><option value="Dinner reservation">Dinner reservation</option><option value="Coffee stop">Coffee stop</option></select></label><div class="grid grid-cols-2 gap-3"><label class="text-xs font-bold text-[#66817a]">DAY COUNTRY<select id="f-day-country" class="mt-1 w-full rounded-xl border border-[#dce8df] bg-white p-3 text-sm"><option>Switzerland</option><option>Austria</option><option>Singapore</option><option>Other</option></select></label><label class="text-xs font-bold text-[#66817a]">DURATION<input id="f-duration" type="number" min="15" step="15" value="60" class="mt-1 w-full rounded-xl border border-[#dce8df] bg-white p-3 text-sm"></label></div><label class="text-xs font-bold text-[#66817a]">DAY TITLE<input id="f-day-title" placeholder="e.g. Swiss lakes & peaks" class="mt-1 w-full rounded-xl border border-[#dce8df] bg-white p-3 text-sm"></label><label class="text-xs font-bold text-[#66817a]">PLAN / PLACE<input id="f-location" placeholder="e.g. Lake Lucerne" class="mt-1 w-full rounded-xl border border-[#dce8df] bg-white p-3 text-sm"></label><div class="grid grid-cols-[1fr_105px] gap-3"><label class="text-xs font-bold text-[#66817a]">COST<input id="f-cost" type="number" min="0" placeholder="0" class="mt-1 w-full rounded-xl border border-[#dce8df] bg-white p-3 text-sm"></label><label class="text-xs font-bold text-[#66817a]">CURRENCY<select id="f-currency" class="mt-1 w-full rounded-xl border border-[#dce8df] bg-white p-3 text-sm"><option value="CHF">CHF · Swiss</option><option value="EUR">EUR · Austrian</option><option value="SGD">SGD · Singapore</option></select></label></div><label class="text-xs font-bold text-[#66817a]">NOTES<textarea id="f-description" rows="3" placeholder="Write your backup plan or notes…" class="mt-1 w-full rounded-xl border border-[#dce8df] bg-white p-3 text-sm resize-none"></textarea></label><button onclick="addStop()" class="w-full py-3 rounded-xl bg-[#2d7b70] text-white font-bold text-sm hover:bg-[#24675f]">Add to day</button></div></aside></div>
-</div></main></div>
+<body class="min-h-screen text-[#173b3d]">
+<div class="min-h-screen lg:flex">
+  <!-- Hero / brand sidebar -->
+  <aside class="lg:w-[360px] xl:w-[390px] mountain text-white p-6 lg:p-8 relative overflow-hidden">
+    <div class="absolute inset-0 grid-lines opacity-40"></div>
+    <div class="relative z-10 flex flex-col min-h-[520px] lg:min-h-screen">
+      <div class="flex items-center gap-3 mb-12">
+        <div class="w-11 h-11 rounded-2xl bg-[#f2c66d] text-[#173b3d] flex items-center justify-center">
+          <i data-lucide="mountain" class="w-6 h-6"></i>
+        </div>
+        <div>
+          <div class="text-[10px] tracking-[.25em] uppercase text-[#b8d9cc]">Travel journal</div>
+          <div class="serif text-xl">Alpine Atlas</div>
+        </div>
+      </div>
+      <div class="mt-auto mb-10">
+        <p class="text-[#b8d9cc] text-sm mb-3">Switzerland 🇨🇭 &amp; Austria 🇦🇹 · A slower way to travel</p>
+        <h1 class="serif text-4xl xl:text-5xl leading-[1.08] mb-5">Two countries.<br>
+          <span class="text-[#f2c66d]">One beautiful</span><br>itinerary.</h1>
+        <p class="text-sm leading-6 text-[#d7e9e0] max-w-xs">Drag your plans between days, shape the duration, and let the timeline arrange itself.</p>
+      </div>
+      <div class="border-t border-white/20 pt-5 flex items-center justify-between text-xs text-[#b8d9cc]">
+        <span class="flex items-center gap-2"><i data-lucide="move" class="w-4 h-4"></i> Drag to arrange</span>
+        <span id="saved-status">Loading…</span>
+      </div>
+    </div>
+  </aside>
+
+  <!-- Main content -->
+  <main class="flex-1 p-5 sm:p-8 lg:p-10 xl:p-14 overflow-y-auto">
+    <div class="max-w-7xl mx-auto">
+      <!-- Page header -->
+      <header class="flex flex-col sm:flex-row sm:items-end justify-between gap-5 mb-8">
+        <div>
+          <div class="uppercase tracking-[.22em] text-[11px] font-bold text-[#7d9d91] mb-2">Your field notes</div>
+          <h2 class="serif text-4xl sm:text-5xl text-[#173b3d]">The Alpine itinerary</h2>
+          <p class="text-sm text-[#78918a] mt-2">Write freely. Drag a card into another day. Duration updates fit the day automatically.</p>
+        </div>
+        <div class="flex gap-2 flex-wrap">
+          <button onclick="exportMarkdown()" class="px-4 py-2.5 rounded-xl bg-white border border-[#dce8df] text-sm font-semibold flex items-center gap-2 hover:bg-[#edf5ef]">
+            <i data-lucide="download" class="w-4 h-4"></i> Export</button>
+          <button onclick="resetPlan()" class="px-4 py-2.5 rounded-xl bg-[#173b3d] text-white text-sm font-semibold flex items-center gap-2 hover:bg-[#285a5c]">
+            <i data-lucide="rotate-ccw" class="w-4 h-4"></i> Reset</button>
+        </div>
+      </header>
+
+      <!-- Dashboard row -->
+      <section class="grid xl:grid-cols-[1.15fr_1fr] gap-5 mb-8">
+        <div class="paper rounded-3xl border border-[#dce8df] shadow-soft p-5 sm:p-6">
+          <div class="flex items-center justify-between mb-5">
+            <div>
+              <div class="text-[11px] uppercase tracking-widest font-bold text-[#7d9d91]">Currency companion</div>
+              <h3 class="serif text-2xl mt-1">Travel budget converter</h3>
+            </div>
+            <i data-lucide="repeat-2" class="w-5 h-5 text-[#2d7b70]"></i>
+          </div>
+          <p class="text-sm text-[#6c8580] mb-5">Enter an amount in any currency to see the equivalent in the other two.</p>
+          <div class="grid sm:grid-cols-3 gap-3" id="currency-inputs"></div>
+          <div class="mt-4 text-[11px] text-[#94aaa2]">Indicative rates · 1 SGD = 0.66 CHF = 0.69 EUR</div>
+        </div>
+
+        <div class="paper rounded-3xl border border-[#dce8df] shadow-soft p-5 sm:p-6">
+          <div class="flex items-center justify-between mb-5">
+            <div>
+              <div class="text-[11px] uppercase tracking-widest font-bold text-[#7d9d91]">Trip snapshot</div>
+              <h3 class="serif text-2xl mt-1">Your route at a glance</h3>
+            </div>
+            <i data-lucide="compass" class="w-5 h-5 text-[#d89f36]"></i>
+          </div>
+          <div class="grid grid-cols-3 gap-3" id="stats"></div>
+          <div class="mt-4 text-[11px] text-[#94aaa2] mb-3" id="cost-summary"></div>
+          <div class="mt-3 pt-4 border-t border-[#e4eee7] flex flex-wrap gap-2">
+            <button onclick="loadTemplate('switzerland')" class="flex-1 min-w-[110px] py-2.5 rounded-xl bg-[#edf5ef] text-[#28645d] text-xs font-bold hover:bg-[#e0efe6]">🇨🇭 Swiss route</button>
+            <button onclick="loadTemplate('austria')" class="flex-1 min-w-[110px] py-2.5 rounded-xl bg-[#fff6df] text-[#916d22] text-xs font-bold hover:bg-[#fff0cc]">🇦🇹 Austrian route</button>
+            <button onclick="loadTemplate('grandtour')" class="flex-1 min-w-[110px] py-2.5 rounded-xl bg-[#eee9f5] text-[#5b3f86] text-xs font-bold hover:bg-[#e7def2]">🇨🇭🇦🇹 Grand Tour</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- Itinerary board + add form -->
+      <div class="grid xl:grid-cols-[1fr_330px] gap-8 items-start">
+        <section>
+          <div class="flex items-center justify-between mb-5">
+            <div>
+              <div class="text-[11px] uppercase tracking-widest font-bold text-[#7d9d91]">Drag &amp; drop day board</div>
+              <h3 class="serif text-3xl mt-1">Plans &amp; places</h3>
+            </div>
+            <div class="text-xs text-[#7d9d91]" id="stop-count">0 plans pinned</div>
+          </div>
+          <div id="itinerary" class="space-y-5"></div>
+        </section>
+
+        <aside class="paper rounded-3xl border border-[#dce8df] shadow-soft p-5 lg:sticky lg:top-5">
+          <div class="flex items-center gap-3 mb-5">
+            <div class="w-10 h-10 rounded-2xl bg-[#edf5ef] flex items-center justify-center text-[#28645d]">
+              <i data-lucide="plus" class="w-5 h-5"></i>
+            </div>
+            <div>
+              <h3 class="font-bold">Add a plan</h3>
+              <p class="text-xs text-[#78918a]">The timeline will fit it in</p>
+            </div>
+          </div>
+          <div class="space-y-3">
+            <div class="grid grid-cols-2 gap-3">
+              <label class="text-xs font-bold text-[#66817a]">DAY
+                <input id="f-day" type="number" min="1" value="1" class="mt-1 w-full rounded-xl border border-[#dce8df] bg-white p-3 text-sm">
+              </label>
+              <label class="text-xs font-bold text-[#66817a]">START TIME
+                <input id="f-time" type="time" min="09:00" max="22:00" value="09:00" class="mt-1 w-full rounded-xl border border-[#dce8df] bg-white p-3 text-sm">
+              </label>
+            </div>
+            <label class="text-xs font-bold text-[#66817a]">QUICK MEAL OPTION
+              <select id="f-meal" onchange="applyMeal(this.value)" class="mt-1 w-full rounded-xl border border-[#dce8df] bg-white p-3 text-sm">
+                <option value="">Choose a meal or activity type</option>
+                <option value="Hotel breakfast">Hotel breakfast</option>
+                <option value="Eat out">Eat out</option>
+                <option value="Lunch break">Lunch break</option>
+                <option value="Dinner reservation">Dinner reservation</option>
+                <option value="Coffee stop">Coffee stop</option>
+              </select>
+            </label>
+            <div class="grid grid-cols-2 gap-3">
+              <label class="text-xs font-bold text-[#66817a]">DAY COUNTRY
+                <select id="f-day-country" class="mt-1 w-full rounded-xl border border-[#dce8df] bg-white p-3 text-sm">
+                  <option>Switzerland</option>
+                  <option>Austria</option>
+                  <option>Singapore</option>
+                  <option>Other</option>
+                </select>
+              </label>
+              <label class="text-xs font-bold text-[#66817a]">DURATION (MIN)
+                <input id="f-duration" type="number" min="15" step="15" value="60" class="mt-1 w-full rounded-xl border border-[#dce8df] bg-white p-3 text-sm">
+              </label>
+            </div>
+            <label class="text-xs font-bold text-[#66817a]">DAY TITLE
+              <input id="f-day-title" placeholder="e.g. Swiss lakes &amp; peaks" class="mt-1 w-full rounded-xl border border-[#dce8df] bg-white p-3 text-sm">
+            </label>
+            <label class="text-xs font-bold text-[#66817a]">PLAN / PLACE
+              <input id="f-location" placeholder="e.g. Lake Lucerne" class="mt-1 w-full rounded-xl border border-[#dce8df] bg-white p-3 text-sm">
+            </label>
+            <div class="grid grid-cols-[1fr_105px] gap-3">
+              <label class="text-xs font-bold text-[#66817a]">COST
+                <input id="f-cost" type="number" min="0" placeholder="0" class="mt-1 w-full rounded-xl border border-[#dce8df] bg-white p-3 text-sm">
+              </label>
+              <label class="text-xs font-bold text-[#66817a]">CURRENCY
+                <select id="f-currency" class="mt-1 w-full rounded-xl border border-[#dce8df] bg-white p-3 text-sm">
+                  <option value="CHF">CHF · Swiss</option>
+                  <option value="EUR">EUR · Austrian</option>
+                  <option value="SGD">SGD · Singapore</option>
+                </select>
+              </label>
+            </div>
+            <label class="text-xs font-bold text-[#66817a]">NOTES
+              <textarea id="f-description" rows="3" placeholder="Write your backup plan or notes…" class="mt-1 w-full rounded-xl border border-[#dce8df] bg-white p-3 text-sm resize-none"></textarea>
+            </label>
+            <button onclick="addStop()" class="w-full py-3 rounded-xl bg-[#2d7b70] text-white font-bold text-sm hover:bg-[#24675f]">Add to day</button>
+          </div>
+        </aside>
+      </div>
+    </div>
+  </main>
+</div>
+
 <script>
-const api=window.__CANVAS_DATA_API__, rates={SGD:1,CHF:.66,EUR:.69};let stops=[];let draggedId=null;
-const templates={switzerland:[{day:1,title:'Arrival in the Valais',country:'Switzerland',items:[['2026-06-01T09:00','Zermatt village walk','Explore the car-free mountain base town.',0,'CHF','Switzerland',90],['2026-06-01T11:00','Gornergrat cog railway','Ride above the clouds for a Matterhorn panorama.',88,'CHF','Switzerland',120]]},{day:2,title:'Valleys & waterfalls',country:'Switzerland',items:[['2026-06-02T10:00','Lauterbrunnen Valley','A slow walk among waterfalls and alpine meadows.',0,'CHF','Switzerland',120],['2026-06-02T14:00','Lake Brienz','Take the scenic route along turquoise water.',25,'CHF','Switzerland',90]]}],austria:[{day:1,title:'Imperial Vienna',country:'Austria',items:[['2026-06-01T09:30','Schönbrunn Palace','Explore the palace, gardens and imperial history.',29,'EUR','Austria',150],['2026-06-01T13:00','Café Central','A traditional Viennese coffee and cake stop.',12,'EUR','Austria',75]]},{day:2,title:'Lakeside Salzburg',country:'Austria',items:[['2026-06-02T10:00','Mirabell Gardens','Wander through baroque gardens with mountain views.',0,'EUR','Austria',90],['2026-06-02T12:00','Lake Wolfgang','Breathe in the quiet rhythm of the Salzkammergut.',18,'EUR','Austria',120]]}]};
-function esc(v){return String(v??'').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]))}function flash(t){const e=document.getElementById('saved-status');e.textContent=t;setTimeout(()=>e.textContent='Saved',1600)}
-async function refresh(){const rows=await api.select('itinerary_stops',{order_by:'day',order_dir:'asc',limit:1000});stops=(rows||[]).map(r=>({...r,day:Number(r.day),cost:Number(r.cost)||0,duration_minutes:Number(r.duration_minutes)||60,sort_order:Number(r.sort_order)||0}));render()}
-async function load(){try{await refresh();if(!stops.length)await loadTemplate('switzerland',true)}catch(e){flash('Offline preview');render()}}
-async function loadTemplate(key,silent=false){try{await api.remove('itinerary_stops',{}, {limit:1000});for(const d of templates[key])for(let i=0;i<d.items.length;i++){const x=d.items[i];await api.insert('itinerary_stops',{day:d.day,day_title:d.title,day_country:d.country,time:x[0],location:x[1],description:x[2],cost:x[3],currency:x[4],country:x[5],duration_minutes:x[6],sort_order:i})}await refresh();if(!silent)flash('Route loaded')}catch(e){flash('Could not save route')}}
-function render(){renderCurrencies();renderStats();const grouped={};stops.forEach(s=>(grouped[s.day]??=[]).push(s));const days=Object.keys(grouped).sort((a,b)=>a-b);const box=document.getElementById('itinerary');box.innerHTML=days.map(day=>{const list=grouped[day].sort((a,b)=>a.sort_order-b.sort_order||String(a.time).localeCompare(String(b.time)));const title=list[0].day_title||'Custom Excursion',country=list[0].day_country||list[0].country||'Switzerland';return `<article class="paper rounded-3xl border border-[#dce8df] shadow-soft overflow-hidden"><div class="px-5 sm:px-6 py-4 bg-[#edf5ef] flex items-center gap-4"><div class="w-12 h-12 rounded-2xl bg-[#2d7b70] text-white flex flex-col items-center justify-center leading-none"><span class="text-[9px] uppercase tracking-widest">Day</span><strong class="text-xl">${day}</strong></div><div class="flex-1"><div class="flex flex-wrap items-center gap-2"><h4 class="font-bold text-lg">${esc(title)}</h4><span class="text-[10px] uppercase tracking-wider px-2 py-1 rounded-full bg-white/70 text-[#28645d]">${esc(country)}</span></div><p class="text-xs text-[#6e8a81]">09:00 AM – 10:00 PM · ${list.length} plans · drop cards here to allocate this day</p></div><i data-lucide="grip-horizontal" class="w-5 h-5 text-[#91afa1]"></i></div><div class="p-4 sm:p-6 space-y-3 min-h-[90px]" data-day="${day}" ondragover="allowDrop(event)" ondrop="dropOnDay(event,${day})">${list.map((s,i)=>card(s,i)).join('')}</div></article>`}).join('')||`<div class="rounded-3xl border border-dashed border-[#cbded3] p-12 text-center text-[#809891]"><i data-lucide="map-pin-off" class="w-8 h-8 mx-auto mb-3"></i><p>Your map is waiting for a first plan.</p></div>`;document.getElementById('stop-count').textContent=stops.length+' plans pinned';lucide.createIcons();wireDrag();}
-function card(s,i){return `<div draggable="true" data-id="${s.id}" class="plan-card relative flex gap-3 p-4 rounded-2xl bg-white border border-[#e0ebe4] hover:border-[#a9ccbb] hover:shadow-sm transition cursor-grab"><div class="flex flex-col items-center gap-1 w-20 shrink-0"><i data-lucide="grip-vertical" class="w-4 h-4 text-[#9ab5aa]"></i><label class="w-full text-[9px] uppercase tracking-wide text-[#8aa199]">Time<input data-field="time" data-id="${s.id}" type="time" min="09:00" max="22:00" value="${esc(String(s.time).slice(11,16)||String(s.time).slice(0,5))}" class="mt-1 w-full rounded-lg border border-[#e2ece6] p-1.5 text-[11px] text-[#2d7b70] font-bold" onchange="editTime(${s.id},this.value)"></label><div class="w-px flex-1 timeline-line min-h-[24px]"></div><span class="text-[10px] text-[#8aa199]">${s.duration_minutes} min</span></div><div class="flex-1 min-w-0 space-y-2"><input data-field="location" data-id="${s.id}" value="${esc(s.location)}" onchange="editStop(${s.id},'location',this.value)" class="w-full bg-transparent font-bold text-[#173b3d] border-b border-transparent hover:border-[#dce8df] focus:border-[#2d7b70] py-1"><textarea data-field="description" data-id="${s.id}" rows="2" onchange="editStop(${s.id},'description',this.value)" class="w-full resize-none bg-transparent text-sm text-[#718984] border-b border-transparent hover:border-[#dce8df] focus:border-[#2d7b70] py-1">${esc(s.description)}</textarea><div class="flex flex-wrap items-center gap-2"><span class="text-[10px] uppercase tracking-wider px-2 py-1 rounded-full ${s.country==='Austria'?'bg-[#fff2d2] text-[#9b7324]':'bg-[#e4f1e8] text-[#327260]'}">${esc(s.country)} · ${esc(s.currency)}</span><label class="text-[10px] font-bold text-[#78918a] flex items-center gap-1">DURATION <input type="number" min="15" step="15" value="${s.duration_minutes}" onchange="editDuration(${s.id},this.value)" class="w-16 rounded-lg border border-[#dce8df] p-1.5 text-xs text-center"></label><span class="text-xs text-[#9aaba5]">${s.cost?'· '+esc(s.currency)+' '+Number(s.cost).toLocaleString():'· Free'}</span></div></div><button onclick="deleteStop(${s.id})" aria-label="Delete plan" class="self-start text-[#bc6b59] hover:text-red-700 p-1"><i data-lucide="trash-2" class="w-4 h-4"></i></button></div>`}
-function wireDrag(){document.querySelectorAll('.plan-card').forEach(el=>{el.addEventListener('dragstart',e=>{draggedId=Number(el.dataset.id);el.classList.add('dragging')});el.addEventListener('dragend',()=>el.classList.remove('dragging'))})}function allowDrop(e){e.preventDefault();e.currentTarget.classList.add('drop-target')}async function dropOnDay(e,day){e.preventDefault();e.currentTarget.classList.remove('drop-target');if(!draggedId)return;const s=stops.find(x=>Number(x.id)===draggedId);if(!s||Number(s.day)===Number(day)){draggedId=null;return}const target=stops.filter(x=>Number(x.day)===Number(day));await api.update('itinerary_stops',{id:draggedId},{day:Number(day),day_title:target[0]?.day_title||'Custom Excursion',day_country:target[0]?.day_country||s.day_country||s.country,sort_order:target.length});draggedId=null;await refresh();await fitDay(day);flash('Plan moved and fitted')}
-async function editStop(id,field,value){const data={};data[field]=value;await api.update('itinerary_stops',{id:Number(id)},data);const s=stops.find(x=>Number(x.id)===Number(id));if(s)s[field]=value;flash('Plan saved')}
-async function editDuration(id,value){const minutes=Math.max(15,Number(value)||60);await api.update('itinerary_stops',{id:Number(id)},{duration_minutes:minutes});const s=stops.find(x=>Number(x.id)===Number(id));if(s)s.duration_minutes=minutes;await fitDay(s.day);flash('Timeline fitted')}
-async function fitDay(day){const list=stops.filter(s=>Number(s.day)===Number(day)).sort((a,b)=>a.sort_order-b.sort_order||String(a.time).localeCompare(String(b.time)));if(!list.length)return;let start=new Date(`2026-06-${String(day).padStart(2,'0')}T09:00`);for(let i=0;i<list.length;i++){if(start.getHours()>=22)start=new Date(start.getFullYear(),start.getMonth(),start.getDate(),21,0);const d=new Date(start);const iso=new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,16);list[i].time=iso;list[i].sort_order=i;await api.update('itinerary_stops',{id:Number(list[i].id)},{time:iso,sort_order:i});start=new Date(d.getTime()+(Number(list[i].duration_minutes)||60)*60000);if(start.getHours()>22||(start.getHours()===22&&start.getMinutes()>0))start=new Date(d.getFullYear(),d.getMonth(),d.getDate(),22,0)}await refresh()}
-function applyMeal(value){if(!value)return;const location=document.getElementById('f-location'),description=document.getElementById('f-description');if(!location.value.trim())location.value=value;if(!description.value.trim())description.value=`Suggested time for ${value.toLowerCase()}.`;}async function editTime(id,value){const s=stops.find(x=>Number(x.id)===Number(id));if(!s||!value)return;const day=String(s.day).padStart(2,'0'),iso=`2026-06-${day}T${value}`;await api.update('itinerary_stops',{id:Number(id)},{time:iso});s.time=iso;await fitDay(s.day);flash('Time saved')}async function addStop(){const day=Math.max(1,parseInt(document.getElementById('f-day').value)||1),selectedTime=document.getElementById('f-time').value||'09:00',safeTime=selectedTime<'09:00'?'09:00':selectedTime>'22:00'?'22:00':selectedTime,time=`2026-06-${String(day).padStart(2,'0')}T${safeTime}`,dayCountry=document.getElementById('f-day-country').value,dayTitle=document.getElementById('f-day-title').value.trim()||`${dayCountry} itinerary`,location=document.getElementById('f-location').value.trim()||'New plan',duration=Math.max(15,Number(document.getElementById('f-duration').value)||60),cost=Math.max(0,parseFloat(document.getElementById('f-cost').value)||0),currency=document.getElementById('f-currency').value,description=document.getElementById('f-description').value.trim()||'A custom travel moment',country=currency==='EUR'?'Austria':currency==='CHF'?'Switzerland':'Singapore';try{const existing=stops.filter(s=>Number(s.day)===day);await api.insert('itinerary_stops',{day,day_title:dayTitle,day_country:dayCountry,time,location,description,cost,currency,country,duration_minutes:duration,sort_order:existing.length});await refresh();await fitDay(day);['f-location','f-cost','f-description'].forEach(id=>document.getElementById(id).value='');document.getElementById('f-meal').value='';flash('Plan added')}catch(e){flash('Could not save plan')}}
-async function deleteStop(id){if(!confirm('Delete this plan from your itinerary?'))return;await api.remove('itinerary_stops',{id:Number(id)});stops=stops.filter(s=>Number(s.id)!==Number(id));render();flash('Plan removed')}
-async function resetPlan(){if(!confirm('Clear this itinerary?'))return;await api.remove('itinerary_stops',{}, {limit:1000});stops=[];render();flash('Itinerary cleared')}
-function renderStats(){const days=new Set(stops.map(s=>s.day)).size,total=stops.reduce((a,s)=>a+Number(s.cost||0),0);document.getElementById('stats').innerHTML=[['calendar-days',days,'days'],['map-pinned',stops.length,'plans'],['wallet-cards',total.toLocaleString(),'listed cost']].map(x=>`<div class="rounded-2xl bg-[#f5f8f5] p-3"><i data-lucide="${x[0]}" class="w-4 h-4 text-[#d89f36] mb-2"></i><div class="font-bold text-lg">${x[1]}</div><div class="text-[10px] text-[#78918a] uppercase tracking-wider">${x[2]}</div></div>`).join('');lucide.createIcons()}
-function renderCurrencies(){const root=document.getElementById('currency-inputs');if(root.children.length)return;const labels={SGD:'Singapore',CHF:'Switzerland',EUR:'Austria'};root.innerHTML=['SGD','CHF','EUR'].map(c=>`<label class="text-xs font-bold text-[#66817a]">${c} · ${labels[c]}<input data-currency="${c}" oninput="convert('${c}',this.value)" type="number" min="0" step=".01" placeholder="0.00" class="mt-1 w-full rounded-xl border border-[#dce8df] bg-white p-3 text-base font-semibold"></label>`).join('')}
-function convert(source,value){const amount=parseFloat(value);document.querySelectorAll('[data-currency]').forEach(i=>{if(i.dataset.currency!==source)i.value=Number.isFinite(amount)?(amount/rates[source]*rates[i.dataset.currency]).toFixed(2):''})}
-function exportMarkdown(){let md='# Alpine Atlas Itinerary\n\n';[...new Set(stops.map(s=>s.day))].sort((a,b)=>a-b).forEach(d=>{const items=stops.filter(s=>s.day==d).sort((a,b)=>a.sort_order-b.sort_order);md+=`## Day ${d}: ${items[0]?.day_title||'Custom Excursion'} — ${items[0]?.day_country||''}\n\n`;items.forEach(s=>md+=`- **${s.time}** · ${s.location} (${s.duration_minutes} min)\n  - ${s.description}\n  - Cost: ${s.cost?s.currency+' '+s.cost:'Free'}\n\n`)});const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([md],{type:'text/markdown'}));a.download='alpine-atlas-itinerary.md';a.click()}
-lucide.createIcons();load();
-</script></body></html>
+/* ============================================================
+   ALPINE ATLAS — Itinerary Planner
+   Standalone edition. Persistence: LocalStorage only.
+   No backend, no Firebase, no window.__CANVAS_DATA_API__.
+   Runs on GitHub Pages, Netlify, Vercel, or local index.html.
+   ============================================================ */
+(function () {
+  'use strict';
+
+  const STORAGE_KEY = 'alpineAtlasItinerary_v1';
+  const RATES = { SGD: 1, CHF: 0.66, EUR: 0.69 };
+  const OPEN = '09:00', CLOSE = '22:00';
+
+  /* ------------------------------------------------------------------
+     DATA MODEL  ->  let stops = []
+     Every operation below reads from / writes to this in-memory array
+     and persists to LocalStorage via saveStops().
+     ------------------------------------------------------------------ */
+  let stops = [];
+  let idSequence = 0;
+  let draggedId = null;
+
+  /* ------------------ PERSISTENCE (LocalStorage) ------------------ */
+  function saveStops() {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({ stops: stops, idSequence: idSequence }));
+    } catch (e) { console.warn('saveStops failed', e); }
+  }
+
+  function loadStops() {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) { stops = []; idSequence = 0; return; }
+      const data = JSON.parse(raw) || {};
+      const list = Array.isArray(data.stops) ? data.stops : [];
+      stops = list.map(function (r) {
+        return {
+          id: Number(r.id),
+          day: Number(r.day),
+          day_title: r.day_title,
+          day_country: r.day_country,
+          time: r.time || OPEN,
+          location: r.location || '',
+          description: r.description || '',
+          cost: Number(r.cost) || 0,
+          currency: r.currency || 'CHF',
+          country: r.country || '',
+          duration_minutes: Number(r.duration_minutes) || 60,
+          sort_order: Number(r.sort_order) || 0
+        };
+      });
+      idSequence = Number(data.idSequence) || stops.reduce(function (m, s) { return Math.max(m, s.id); }, 0);
+    } catch (e) { console.warn('loadStops failed', e); stops = []; idSequence = 0; }
+  }
+
+  function clearStops() {
+    try { localStorage.removeItem(STORAGE_KEY); } catch (e) {}
+    stops = [];
+    idSequence = 0;
+  }
+
+  function nextId() { idSequence += 1; return idSequence; }
+
+  /* ------------------ tiny utilities ------------------ */
+  function esc(v) {
+    return String(v == null ? '' : v).replace(/[&<>'"]/g, function (c) {
+      return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[c]);
+    });
+  }
+  function flag(country) {
+    if (country === 'Austria') return '🇦🇹';
+    if (country === 'Switzerland') return '🇨🇭';
+    if (country === 'Singapore') return '🇸🇬';
+    return '🌍';
+  }
+  var _flashTimer = null;
+  function flash(t) {
+    var e = document.getElementById('saved-status');
+    if (!e) return;
+    e.textContent = t;
+    clearTimeout(_flashTimer);
+    _flashTimer = setTimeout(function () { e.textContent = 'Saved locally'; }, 1500);
+  }
+
+  /* ------------------ ITINERARY TEMPLATES ------------------ */
+  var TEMPLATES = {
+    switzerland: [
+      { day: 1, title: 'Arrival in the Valais', country: 'Switzerland', items: [
+        ['09:00', 'Zermatt village walk',   'Explore the car-free mountain base town at your own pace.', 0,  'CHF', 'Switzerland', 90],
+        ['11:00', 'Gornergrat cog railway', 'Ride above the clouds for a Matterhorn panorama.', 88, 'CHF', 'Switzerland', 120],
+        ['15:30', 'Riffelsee reflections',  'Lunch by the lake with the iconic Matterhorn postcard.', 30, 'CHF', 'Switzerland', 150]
+      ]},
+      { day: 2, title: 'Valleys & waterfalls', country: 'Switzerland', items: [
+        ['09:00', 'Lauterbrunnen valley walk', 'A slow walk among waterfalls and alpine meadows.', 0, 'CHF', 'Switzerland', 120],
+        ['13:00', 'Trümmelbach falls', 'Tunnel through the mountain to seven cascading falls.', 25, 'CHF', 'Switzerland', 90],
+        ['16:00', 'Grindelwald viewpoint', 'Golden light over the Eiger north face before dinner.', 0, 'CHF', 'Switzerland', 90]
+      ]},
+      { day: 3, title: 'Lakes & slow boats', country: 'Switzerland', items: [
+        ['09:00', 'Lake Brienz boat', 'A glassy turquoise lake made for unhurried mornings.', 28, 'CHF', 'Switzerland', 120],
+        ['13:30', 'Interlaken meadow crossing', 'Cross the car-free meadow from Lütschental to Brünnig.', 0, 'CHF', 'Switzerland', 120],
+        ['18:00', 'Sarnen lakeside dinner', 'Fondue in a quiet UNESCO-heritage lakeside town.', 55, 'CHF', 'Switzerland', 120]
+      ]}
+    ],
+    austria: [
+      { day: 1, title: 'Imperial Vienna', country: 'Austria', items: [
+        ['09:00', 'Schönbrunn Palace', 'Explore the palace, gardens and imperial history.', 29, 'EUR', 'Austria', 150],
+        ['13:00', 'Café Central', 'A traditional Viennese coffee and cake stop.', 12, 'EUR', 'Austria', 75],
+        ['15:00', 'Belvedere & Habsburg', 'Climb to Canaletto’s view over the Ring.', 18, 'EUR', 'Austria', 120],
+        ['19:00', 'Secession café evening', 'Sip a lemon meringue while the streetlamps flicker on.', 15, 'EUR', 'Austria', 90]
+      ]},
+      { day: 2, title: 'Lakeside Salzburg', country: 'Austria', items: [
+        ['09:30', 'Mirabell Gardens', 'Wander through baroque gardens with mountain views.', 0, 'EUR', 'Austria', 90],
+        ['11:30', 'Hohensalzburg Fortress', 'Cable car up to the city’s stone cathedral.', 14, 'EUR', 'Austria', 120],
+        ['15:00', 'Mozart’s birthplace', 'A small museum, a big life.', 13, 'EUR', 'Austria', 60],
+        ['18:00', 'Residenzplatz fountain', 'Sprinklers at dusk on the old state square.', 0, 'EUR', 'Austria', 60]
+      ]},
+      { day: 3, title: 'Styrian villages', country: 'Austria', items: [
+        ['09:00', 'Frischlingspass hike', 'Rolling green ridges all the way to the wine terraces.', 0, 'EUR', 'Austria', 150],
+        ['13:30', 'Graz old town', 'The canal, the grain village and a local lunch.', 45, 'EUR', 'Austria', 150],
+        ['18:00', 'Schlossberg viewpoint', 'Watch the red roofs catch the alpenglow.', 0, 'EUR', 'Austria', 60]
+      ]}
+    ],
+    grandtour: [
+      { day: 1, title: 'Zermatt & the Matterhorn', country: 'Switzerland', items: [
+        ['09:00', 'Zermatt village walk',   'Car-free base of the most famous mountain in Europe.', 0,  'CHF', 'Switzerland', 90],
+        ['11:00', 'Gornergrat cog railway', 'Above the clouds, a Matterhorn panorama.', 88,   'CHF', 'Switzerland', 120],
+        ['15:30', 'Riffelsee reflections',  'Lunch by the mirror lake.', 30,                 'CHF', 'Switzerland', 120]
+      ]},
+      { day: 2, title: 'Into the Tyrol', country: 'Austria', items: [
+        ['09:00', 'Inn valley drive',       'Farms, hay and the river reflecting pine cliffs.', 0,    'EUR', 'Austria', 240],
+        ['14:00', 'Sölden cable car',       'Cardinal Joe’s chairlift for the high-alpine views.', 19, 'EUR', 'Austria', 150],
+        ['19:00', 'Alm dinner',             'A long wooden table overlooking the valley.', 60,    'EUR', 'Austria', 120]
+      ]},
+      { day: 3, title: 'Imperial Vienna', country: 'Austria', items: [
+        ['09:00', 'Schönbrunn Palace',      'Palace, gardens and the imperial court.', 29, 'EUR', 'Austria', 150],
+        ['13:30', 'Café Central',           'Coffee & Sachertorte by the piano hall.', 12,  'EUR', 'Austria', 90],
+        ['17:00', 'Secession evening',      'Nachmittstee under the cream dome.', 15,    'EUR', 'Austria', 90]
+      ]},
+      { day: 4, title: 'Lakeside Salzburg', country: 'Austria', items: [
+        ['09:30', 'Mirabell Gardens',        'A baroque garden on a mountain slope.', 0,  'EUR', 'Austria', 90],
+        ['11:30', 'Hohensalzburg Fortress',  'Climb the ramparts.', 14,                 'EUR', 'Austria', 120],
+        ['15:00', 'Mozart’s birthplace',     'The small museum of a giant.', 13,        'EUR', 'Austria', 60]
+      ]}
+    ]
+  };
+
+  /* ------------------ time helpers ------------------ */
+  function minToTime(m) {
+    var t = ((m % (24 * 60)) + (24 * 60)) % (24 * 60);
+    var h = Math.floor(t / 60), mm = t % 60;
+    return (h < 10 ? '0' + h : '' + h) + ':' + (mm < 10 ? '0' + mm : '' + mm);
+  }
+  function timeToMin(t) {
+    var parts = String(t || OPEN).split(':');
+    return (parseInt(parts[0], 10) || 9) * 60 + (parseInt(parts[1], 10) || 0);
+  }
+
+  /* Recalculate day's times so the timeline fits inside 09:00 -> 22:00.
+     Activities ordered by sort_order then existing time. Each activity
+     starts when the previous one ends; late activities get clamped to 22:00. */
+  function fitDay(day) {
+    var list = stops
+      .filter(function (s) { return Number(s.day) === Number(day); })
+      .sort(function (a, b) {
+        return a.sort_order - b.sort_order || String(a.time).localeCompare(String(b.time));
+      });
+    if (!list.length) return;
+    var next = timeToMin(OPEN);
+    list.forEach(function (s, i) {
+      var dur = Math.max(15, Number(s.duration_minutes) || 60);
+      s.time = minToTime(next);
+      s.sort_order = i;
+      next = Math.min(next + dur, timeToMin(CLOSE));
+    });
+    saveStops();
+  }
+
+  /* ------------------ CRUD (replace api.insert / api.update / api.remove) ------------------
+     Every function mutates the in-memory `stops` array and calls saveStops().
+     render() is NOT called here — callers do that so multiple changes can be
+     batched into a single re-render.               */
+
+  function insertStop(data) {
+    var stop = Object.assign({ id: nextId(), cost: 0, duration_minutes: 60, sort_order: 0 }, data);
+    stops.push(stop);
+    saveStops();
+    return stop;
+  }
+
+  function updateStop(id, patch) {
+    var s = stops.findIndex(function (x) { return Number(x.id) === Number(id); });
+    if (s === -1) return false;
+    Object.assign(stops[s], patch);
+    saveStops();
+    return true;
+  }
+
+  function removeStop(id) {
+    stops = stops.filter(function (s) { return Number(s.id) !== Number(id); });
+    saveStops();
+  }
+
+  /* ------------------ public actions ------------------ */
+  window.addStop = function () {
+    var day = Math.max(1, parseInt(document.getElementById('f-day').value, 10) || 1);
+    var t = document.getElementById('f-time').value || OPEN;
+    if (t < OPEN) t = OPEN;
+    if (t > CLOSE) t = CLOSE;
+
+    var dayCountry = document.getElementById('f-day-country').value;
+    var dayTitle   = document.getElementById('f-day-title').value.trim() || (dayCountry + ' itinerary');
+    var location   = document.getElementById('f-location').value.trim()   || 'New plan';
+    var duration   = Math.max(15, Number(document.getElementById('f-duration').value) || 60);
+    var cost       = Math.max(0, parseFloat(document.getElementById('f-cost').value) || 0);
+    var currency   = document.getElementById('f-currency').value;
+    var description= document.getElementById('f-description').value.trim() || 'A custom travel moment';
+    var country    = currency === 'EUR' ? 'Austria' : currency === 'CHF' ? 'Switzerland' : 'Singapore';
+
+    var existing = stops.filter(function (s) { return Number(s.day) === day; });
+    insertStop({
+      day: day, day_title: dayTitle, day_country: dayCountry,
+      time: t, location: location, description: description,
+      cost: cost, currency: currency, country: country,
+      duration_minutes: duration, sort_order: existing.length
+    });
+    fitDay(day);
+    render();
+    ['f-location','f-cost','f-description'].forEach(function (id) { document.getElementById(id).value = ''; });
+    document.getElementById('f-meal').value = '';
+    flash('Plan added');
+  };
+
+  window.editStop = function (id, field, value) {
+    updateStop(id, { [field]: value });
+    render();
+    flash('Plan saved');
+  };
+
+  window.editDuration = function (id, value) {
+    var minutes = Math.max(15, Number(value) || 60);
+    var s = stops.find(function (x) { return Number(x.id) === Number(id); });
+    if (!s) return;
+    updateStop(id, { duration_minutes: minutes });
+    fitDay(s.day);
+    render();
+    flash('Timeline fitted');
+  };
+
+  window.editTime = function (id, value) {
+    var s = stops.find(function (x) { return Number(x.id) === Number(id); });
+    if (!s || !value) return;
+    if (value < OPEN) value = OPEN;
+    if (value > CLOSE) value = CLOSE;
+
+    // Re-appearance behaviour: if user wants the activity at a specific wall-clock
+    // time, anchor the day at that time and re-fit so it stays within hours.
+    updateStop(id, { time: value });
+    // Re-derive sort order for this card so subsequent cards flow from that wall time.
+    var list = stops
+      .filter(function (x) { return Number(x.day) === Number(s.day); })
+      .sort(function (a, b) {
+        return String(a.time).localeCompare(String(b.time)) || a.sort_order - b.sort_order;
+      });
+    list.forEach(function (x, i) { x.sort_order = i; });
+    // Shift subsequent stops forward if the user's chosen time pushes them past 22:00.
+    var prev = timeToMin(list[0].time);
+    list.forEach(function (x, i) {
+      if (i === 0) return;
+      var proj = timeToMin(list[i-1].time) + Math.max(15, Number(list[i-1].duration_minutes) || 60);
+      var cap  = timeToMin(CLOSE);
+      x.time   = timeToMin(x.time) < proj ? minToTime(Math.min(proj, cap)) : minToTime(Math.min(timeToMin(x.time), cap));
+    });
+    saveStops();
+    render();
+    flash('Time saved');
+  };
+
+  window.deleteStop = function (id) {
+    if (!confirm('Delete this plan from your itinerary?')) return;
+    var target = stops.find(function (s) { return Number(s.id) === Number(id); });
+    if (!target) return;
+    var day = target.day;
+    removeStop(id);
+    // Renumber remaining sort orders within this day so there are no gaps.
+    stops
+      .filter(function (s) { return Number(s.day) === Number(day); })
+      .sort(function (a,b){ return a.sort_order - b.sort_order; })
+      .forEach(function (s, i) { s.sort_order = i; });
+    saveStops();
+    render();
+    
+    flash('Plan removed');
+  };
+
+  /* ------------------ drag & drop helpers ------------------ */
+  window.allowDrop = function (e) { e.preventDefault(); e.currentTarget.classList.add("drop-target"); };
+
+  window.dropOnDay = function (e, day) {
+    e.preventDefault();
+    e.currentTarget.classList.remove("drop-target");
+    if (!draggedId) return;
+    var s = stops.find(function (x) { return Number(x.id) === Number(draggedId); });
+    draggedId = null;
+    if (!s || Number(s.day) === Number(day)) return;
+    var target = stops.filter(function (x) { return Number(x.day) === Number(day); }).sort(function (a, b) { return a.sort_order - b.sort_order; });
+    updateStop(s.id, { day: Number(day), day_title: target[0] ? target[0].day_title : 'Custom Excursion', day_country: target[0] ? target[0].day_country : (s.day_country || s.country || 'Switzerland'), sort_order: target.length });
+    fitDay(day); render(); flash("Plan moved and fitted");
+  };
+
+  function wireDrag() {
+    document.querySelectorAll('.plan-card').forEach(function (el) {
+      el.addEventListener("dragstart", function () { draggedId = Number(el.dataset.id); el.classList.add("dragging"); });
+      el.addEventListener("dragend", function () { el.classList.remove("dragging"); });
+    });
+  }
+
+  /* ------------------ templates, reset, meal helper ------------------ */
+  window.loadTemplate = function (key) {
+    var tpl = TEMPLATES[key];
+    if (!tpl) return;
+    var verb = key === "grandtour" ? "Grand Tour" : (key === "switzerland" ? "Swiss" : "Austrian");
+    if (stops.length && !confirm('Load the ' + verb + ' route? This replaces your current plans.')) return;
+
+    clearStops();
+    tpl.forEach(function (d) {
+      d.items.forEach(function (x, i) {
+        insertStop({ day: d.day, day_title: d.title, day_country: d.country, time: x[0], location: x[1], description: x[2], cost: x[3], currency: x[4], country: x[5], duration_minutes: x[6], sort_order: i });
+      });
+      fitDay(d.day);
+    });
+    render();
+    flash(verb + " route loaded");
+  };
+
+  window.resetPlan = function () {
+    if (!confirm("Clear this itinerary? This removes all LocalStorage data for this app.")) return;
+    clearStops();
+    render();
+    flash("Itinerary cleared");
+  };
+
+  window.applyMeal = function (value) {
+    if (!value) return;
+    var getLocation = document.getElementById("f-location");
+    var getDesc = document.getElementById("f-description");
+    if (!getLocation.value.trim()) getLocation.value = value;
+    if (!getDesc.value.trim()) getDesc.value = "Suggested time for " + value.toLowerCase() + ".";
+  };
+
+  /* ------------------ render: itinerary ------------------ */
+  function render() {
+    renderCurrencies(); renderStats();
+    var grouped = {};
+    stops.forEach(function (s) { (grouped[s.day] = grouped[s.day] || []).push(s); });
+    var days = Object.keys(grouped).sort(function (a, b) { return a - b; });
+    var box = document.getElementById("itinerary");
+    box.innerHTML = days.map(function (day) {
+      var list = grouped[day].sort(function (a, b) { return a.sort_order - b.sort_order || String(a.time).localeCompare(String(b.time)); });
+      var title = list[0].day_title || "Custom Excursion";
+      return `
+        <article class="day-card paper rounded-3xl border border-[#dce8df] shadow-soft overflow-hidden">
+          <div class="px-5 sm:px-6 py-4 bg-[#edf5ef] flex items-center gap-4">
+            <div class="w-12 h-12 rounded-2xl bg-[#2d7b70] text-white flex flex-col items-center justify-center leading-none">
+              <span class="text-[9px] uppercase tracking-widest">Day</span>
+              <strong class="text-xl">${day}</strong>
+            </div>
+            <div class="flex-1">
+              <div class="flex flex-wrap items-center gap-2">
+                <h4 class="font-bold text-lg">${esc(title)}</h4>
+                <span class="text-[10px] uppercase tracking-wider px-2 py-1 rounded-full bg-white/70 text-[#28645d]">
+                  ${flag(country)} ${esc(country)}
+                </span>
+              </div>
+              <p class="text-xs text-[#6e8a81]">09:00 AM &ndash; 10:00 PM &middot; ${list.length} plan${list.length === 1 ? '' : 's'} &middot; drop cards here to allocate this day</p>
+            </div>
+            <i data-lucide="grip-horizontal" class="w-5 h-5 text-[#91afa1]"></i>
+          </div>
+          <div class="p-4 sm:p-6 space-y-3 min-h-[90px]" data-day="${day}"
+               ondragover="allowDrop(event)" ondrop="dropOnDay(event,${day})">
+            ${list.map(cardHtml).join('')}
+          </div>
+        </article>`;
+    }).join('') || `
+      <div class="rounded-3xl border border-dashed border-[#cbded3] p-12 text-center text-[#809891]">
+        <i data-lucide="map-pin-off" class="w-8 h-8 mx-auto mb-3"></i>
+        <p>Your map is waiting for a first plan. Try a template above, or add one on the right.</p>
+      </div>`;
+    document.getElementById('stop-count').textContent = stops.length + ' plan' + (stops.length === 1 ? '' : 's') + ' pinned';
+    if (window.lucide) window.lucide.createIcons();
+    wireDrag();
+  }
+
+  function cardHtml(s) {
+    return `
+      <div draggable="true" data-id="${s.id}" class="plan-card relative flex gap-3 p-4 rounded-2xl bg-white border border-[#e0ebe4] hover:border-[#a9ccbb] hover:shadow-sm transition cursor-grab">
+        <div class="flex flex-col items-center gap-1 w-20 shrink-0">
+          <i data-lucide="grip-vertical" class="w-4 h-4 text-[#9ab5aa]"></i>
+          <label class="w-full text-[9px] uppercase tracking-wide text-[#8aa199]">Time
+            <input data-field="time" data-id="${s.id}" type="time" min="09:00" max="22:00"
+                   value="${esc(String(s.time).slice(0,5))}"
+                   onchange="editTime(${s.id}, this.value)"
+                   class="mt-1 w-full rounded-lg border border-[#e2ece6] p-1.5 text-[11px] text-[#2d7b70] font-bold">
+          </label>
+          <div class="w-px flex-1 timeline-line min-h-[24px]"></div>
+          <span class="text-[10px] text-[#8aa199]">${s.duration_minutes} min</span>
+        </div>
+        <div class="flex-1 min-w-0 space-y-2">
+          <input data-field="location" data-id="${s.id}" value="${esc(s.location)}"
+                 onchange="editStop(${s.id},'location',this.value)"
+                 class="w-full bg-transparent font-bold text-[#173b3d] border-b border-transparent hover:border-[#dce8df] focus:border-[#2d7b70] py-1">
+          <textarea data-field="description" data-id="${s.id}" rows="2"
+                    onchange="editStop(${s.id},'description',this.value)"
+                    class="w-full resize-none bg-transparent text-sm text-[#718984] border-b border-transparent hover:border-[#dce8df] focus:border-[#2d7b70] py-1">${esc(s.description)}</textarea>
+          <div class="flex flex-wrap items-center gap-2">
+            <span class="badge-${esc(s.country)} text-[10px] uppercase tracking-wider px-2 py-1 rounded-full inline-flex items-center gap-1">
+              ${flag(s.country)} ${esc(s.country)} &middot; ${esc(s.currency)}
+            </span>
+            <label class="text-[10px] font-bold text-[#78918a] flex items-center gap-1">
+              DURATION
+              <input type="number" min="15" step="15" value="${s.duration_minutes}"
+                     onchange="editDuration(${s.id}, this.value)"
+                     class="w-16 rounded-lg border border-[#dce8df] p-1.5 text-xs text-center">
+            </label>
+            <span class="text-xs text-[#9aaba5]">
+              ${s.cost ? '&middot; ' + esc(s.currency) + ' ' + Number(s.cost).toLocaleString() : '&middot; Free'}
+            </span>
+          </div>
+        </div>
+        <button onclick="deleteStop(${s.id})" aria-label="Delete plan"
+                class="self-start text-[#bc6b59] hover:text-red-700 p-1">
+          <i data-lucide="trash-2" class="w-4 h-4"></i>
+        </button>
+      </div>`;
+  }
+
+  function renderStats() {
+    const days = new Set(stops.map(s => s.day)).size;
+    document.getElementById('stats').innerHTML = [
+      ['calendar-days', days, 'days'],
+      ['map-pinned', stops.length, 'plans'],
+      ['wallet-cards', totalCostAll().toLocaleString(), 'SGD approx.']
+    ].map(x => `
+      <div class="rounded-2xl bg-[#f5f8f5] p-3">
+        <i data-lucide="${x[0]}" class="w-4 h-4 text-[#d89f36] mb-2"></i>
+        <div class="font-bold text-lg">${x[1]}</div>
+        <div class="text-[10px] text-[#78918a] uppercase tracking-wider">${x[2]}</div>
+      </div>`).join('');
+
+    const byCur = {};
+    stops.forEach(s => { byCur[s.currency] = (byCur[s.currency] || 0) + Number(s.cost || 0); });
+    const parts = Object.keys(byCur).map(c => `${c} ${byCur[c].toLocaleString()}`).join('  ·  ');
+    document.getElementById('cost-summary').innerHTML = parts
+      ? `Cost by list: <strong>${parts}</strong> · ≈ <strong>SGD ${totalCostAll().toLocaleString()}</strong>`
+      : 'No listed costs yet — add costs to see totals.';
+
+    if (window.lucide) window.lucide.createIcons();
+  }
+
+  function totalCostAll() {
+    return stops.reduce((sum, s) => sum + (Number(s.cost || 0) / RATES[s.currency]) * RATES.SGD, 0);
+  }
+
+  function renderCurrencies() {
+    const root = document.getElementById('currency-inputs');
+    if (root.children.length) return;
+    const labels = { SGD: 'Singapore 🇸🇬', CHF: 'Switzerland 🇨🇭', EUR: 'Austria 🇦🇹' };
+    root.innerHTML = ['SGD', 'CHF', 'EUR'].map(c => `
+      <label class="text-xs font-bold text-[#66817a]">${c} · ${labels[c]}
+        <input data-currency="${c}" oninput="convert('${c}', this.value)"
+               type="number" min="0" step="0.01" placeholder="0.00"
+               class="mt-1 w-full rounded-xl border border-[#dce8df] bg-white p-3 text-base font-semibold">
+      </label>`).join('');
+  }
+
+  window.convert = function (source, value) {
+    const amount = parseFloat(value);
+    document.querySelectorAll('[data-currency]').forEach(i => {
+      if (i.dataset.currency !== source)
+        i.value = Number.isFinite(amount)
+          ? (amount / RATES[source] * RATES[i.dataset.currency]).toFixed(2)
+          : '';
+    });
+  }
+
+  /* ------------------ markdown export ------------------ */
+  window.exportMarkdown = function () {
+    let md = '# Alpine Atlas Itinerary\n\n' +
+             'Total listed cost ≈ **SGD ' + totalCostAll().toLocaleString() + '**\n\n';
+    const days = [...new Set(stops.map(s => s.day))].sort((a, b) => a - b);
+    days.forEach(d => {
+      const items = stops.filter(s => s.day == d).sort((a, b) => a.sort_order - b.sort_order);
+      const first = items[0] || {};
+      md += `## Day ${d}: ${first.day_title || 'Custom Excursion'} — ${first.day_country || ''}\n\n`;
+      items.forEach(s => {
+        md += `- **${s.time}** · ${s.location} (${s.duration_minutes} min)\n`;
+        md += `  - ${s.description}\n`;
+        md += `  - Cost: ${s.cost ? s.currency + ' ' + s.cost : 'Free'}\n\n`;
+      });
+    });
+    if (!days.length) md += '_No plans yet._\n';
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([md], { type: 'text/markdown' }));
+    a.download = 'alpine-atlas-itinerary.md';
+    a.click();
+    flash('Exported markdown');
+  };
+
+  /* ------------------ initialisation ------------------
+     On load: pull everything back out of LocalStorage, then render.
+     First-ever visit (no saved data) seeds the Swiss route.       */
+  window.onload = function () {
+    loadStops();
+    if (stops.length === 0 && sessionStorage.getItem('alpineAtlasSeeded') !== '1') {
+      loadTemplate('switzerland');
+      sessionStorage.setItem('alpineAtlasSeeded', '1');
+    }
+    render();
+    flash('Saved locally');
+  };
+})();
+</script>
+</body>
+</html>

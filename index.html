@@ -268,10 +268,17 @@ input:focus, select:focus, textarea:focus {
 
   /* ------------------ tiny utilities ------------------ */
   function esc(v) {
-    return String(v == null ? '' : v).replace(/[&<>'"]/g, function (c) {
-      return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[c]);
-    });
-  }
+  return String(v ?? '').replace(/[&<>'"]/g, function (c) {
+    return {
+      '&': '&amp;',
+      '<': '&lt;',
+      '>': '&gt;',
+      "'": '&#39;',
+      '"': '&quot;'
+    }[c];
+  });
+}
+
   function flag(country) {
     if (country === 'Austria') return '🇦🇹';
     if (country === 'Switzerland') return '🇨🇭';
@@ -407,6 +414,8 @@ input:focus, select:focus, textarea:focus {
 
   /* ------------------ public actions ------------------ */
   window.addStop = function () {
+
+  console.log("ADD BUTTON CLICKED");
     var day = Math.max(1, parseInt(document.getElementById('f-day').value, 10) || 1);
     var t = document.getElementById('f-time').value || OPEN;
     if (t < OPEN) t = OPEN;
@@ -422,6 +431,17 @@ input:focus, select:focus, textarea:focus {
     var country    = currency === 'EUR' ? 'Austria' : currency === 'CHF' ? 'Switzerland' : 'Singapore';
 
     var existing = stops.filter(function (s) { return Number(s.day) === day; });
+    console.log({
+  day,
+  dayTitle,
+  dayCountry,
+  location,
+  duration,
+  cost,
+  currency,
+  description,
+  country
+});
     insertStop({
       day: day, day_title: dayTitle, day_country: dayCountry,
       time: t, location: location, description: description,
@@ -560,8 +580,14 @@ input:focus, select:focus, textarea:focus {
     var days = Object.keys(grouped).sort(function (a, b) { return a - b; });
     var box = document.getElementById("itinerary");
     box.innerHTML = days.map(function (day) {
-      var list = grouped[day].sort(function (a, b) { return a.sort_order - b.sort_order || String(a.time).localeCompare(String(b.time)); });
-      var title = list[0].day_title || "Custom Excursion";
+      var list = grouped[day].sort(function (a, b) {
+  return a.sort_order - b.sort_order || String(a.time).localeCompare(String(b.time));
+});
+
+var title = list[0].day_title || "Custom Excursion";
+var country = list[0].day_country || list[0].country || "Switzerland";
+      var country = list[0].day_country || list[0].country || "Switzerland";
+
       return `
         <article class="day-card paper rounded-3xl border border-[#dce8df] shadow-soft overflow-hidden">
           <div class="px-5 sm:px-6 py-4 bg-[#edf5ef] flex items-center gap-4">

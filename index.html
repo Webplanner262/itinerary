@@ -1,0 +1,511 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Alpine Blueprint Canvas</title>
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+
+<body class="bg-slate-950 text-slate-50 font-sans h-screen w-screen overflow-hidden flex">
+
+    <!-- LEFT SIDE -->
+    <div class="w-2/3 h-full overflow-y-auto p-8 border-r border-slate-900">
+        <div class="max-w-3xl mx-auto">
+
+            <div class="flex items-center justify-between mb-6">
+                <div class="flex items-center gap-3">
+                    <i data-lucide="compass" class="w-8 h-8 text-emerald-400"></i>
+                    <h1 class="text-2xl font-bold tracking-tight bg-gradient-to-r from-emerald-400 to-cyan-400 bg-clip-text text-transparent">
+                        Alpine Blueprint Canvas
+                    </h1>
+                </div>
+
+                <div class="flex gap-2">
+                    <button onclick="exportToMarkdown()"
+                        class="text-xs px-3 py-1.5 rounded-lg border border-slate-800 bg-slate-900/40 hover:bg-slate-800 flex items-center gap-1.5">
+                        <i data-lucide="download" class="w-3.5 h-3.5"></i>
+                        Export Markdown
+                    </button>
+
+                    <button onclick="resetItinerary()"
+                        class="text-xs px-3 py-1.5 rounded-lg border border-rose-950 bg-rose-950/20 text-rose-400 hover:bg-rose-950/40 flex items-center gap-1.5">
+                        <i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i>
+                        Reset
+                    </button>
+                </div>
+            </div>
+
+            <!-- Budget Dashboard -->
+            <div class="grid grid-cols-2 gap-4 mb-8 bg-slate-900/40 border border-slate-900 rounded-2xl p-4">
+
+                <div class="border-r border-slate-800 pr-3">
+                    <div class="text-[10px] uppercase font-semibold text-red-400 mb-1">
+                        Switzerland Expenses
+                    </div>
+
+                    <div id="swiss-total" class="text-xl font-bold">
+                        CHF 0
+                    </div>
+
+                    <div class="text-xs text-slate-500">
+                        Estimated alpine budget
+                    </div>
+                </div>
+
+                <div class="pl-3">
+                    <div class="text-[10px] uppercase font-semibold text-rose-400 mb-1">
+                        Austria Expenses
+                    </div>
+
+                    <div id="austria-total" class="text-xl font-bold">
+                        €0
+                    </div>
+
+                    <div class="text-xs text-slate-500">
+                        Estimated imperial budget
+                    </div>
+                </div>
+
+            </div>
+
+            <div id="canvas-container" class="space-y-8"></div>
+
+        </div>
+    </div>
+
+    <!-- RIGHT SIDE -->
+    <div class="w-1/3 h-full flex flex-col bg-slate-900/30">
+
+        <div class="p-4 border-b border-slate-900 bg-slate-900/60">
+            <h2 class="font-semibold flex items-center gap-2">
+                <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+                Blueprint Controller
+            </h2>
+
+            <p class="text-xs text-slate-500 mt-1">
+                Select a pre-made trip or add a custom stop.
+            </p>
+        </div>
+
+        <!-- Templates -->
+        <div class="p-4 border-b border-slate-900 space-y-3">
+
+            <label class="text-xs uppercase font-semibold tracking-wider text-slate-500">
+                Select Track
+            </label>
+
+            <div class="grid grid-cols-2 gap-2">
+
+                <button onclick="loadTemplate('switzerland')"
+                    class="p-3 text-left rounded-xl border border-slate-800 bg-slate-900/40 hover:border-slate-700">
+                    <div class="font-medium text-sm">🇨🇭 Swiss Express</div>
+                    <div class="text-[10px] text-slate-500 mt-1">
+                        Peaks & Glacier Trains
+                    </div>
+                </button>
+
+                <button onclick="loadTemplate('austria')"
+                    class="p-3 text-left rounded-xl border border-slate-800 bg-slate-900/40 hover:border-slate-700">
+                    <div class="font-medium text-sm">🇦🇹 Austrian Culture</div>
+                    <div class="text-[10px] text-slate-500 mt-1">
+                        Imperial Palaces & Lakes
+                    </div>
+                </button>
+
+            </div>
+
+        </div>
+
+        <!-- Form -->
+        <div class="flex-1 p-4 overflow-y-auto">
+
+            <div class="space-y-3 bg-slate-900/40 border border-slate-900 p-4 rounded-xl">
+
+                <label class="text-xs uppercase font-semibold tracking-wider text-slate-500 block">
+                    Append Custom Stop
+                </label>
+
+                <input id="form-day" type="number" value="1" min="1"
+                    class="w-full p-2 rounded-lg bg-slate-950 border border-slate-800"
+                    placeholder="Day">
+
+                <input id="form-time"
+                    class="w-full p-2 rounded-lg bg-slate-950 border border-slate-800"
+                    placeholder="09:00 AM">
+
+                <input id="form-location"
+                    class="w-full p-2 rounded-lg bg-slate-950 border border-slate-800"
+                    placeholder="Location">
+
+                <div class="grid grid-cols-2 gap-2">
+
+                    <input id="form-cost-amount" type="number" min="0"
+                        class="w-full p-2 rounded-lg bg-slate-950 border border-slate-800"
+                        placeholder="Cost">
+
+                    <select id="form-currency"
+                        class="w-full p-2 rounded-lg bg-slate-950 border border-slate-800">
+                        <option value="CHF">CHF</option>
+                        <option value="EUR">EUR</option>
+                    </select>
+
+                </div>
+
+                <textarea id="form-desc" rows="3"
+                    class="w-full p-2 rounded-lg bg-slate-950 border border-slate-800"
+                    placeholder="Description"></textarea>
+
+                <button onclick="addCustomStop()"
+                    class="w-full bg-emerald-500 hover:bg-emerald-600 text-slate-950 py-2 rounded-lg font-medium">
+                    Add Stop
+                </button>
+
+            </div>
+
+        </div>
+
+    </div>
+
+<script>
+
+const templates = {
+    switzerland: [
+        {
+            day: 1,
+            title: "Glacier Gateways",
+            activities: [
+                {
+                    time: "09:00 AM",
+                    location: "Zermatt Village Walk",
+                    description: "Explore the car-free mountain base town.",
+                    cost: 0,
+                    currency: "CHF",
+                    country: "Switzerland"
+                },
+                {
+                    time: "01:30 PM",
+                    location: "Gornergrat Cog Railway",
+                    description: "Ride to the famous mountain overlook.",
+                    cost: 88,
+                    currency: "CHF",
+                    country: "Switzerland"
+                }
+            ]
+        },
+        {
+            day: 2,
+            title: "Valleys & Waterfalls",
+            activities: [
+                {
+                    time: "10:00 AM",
+                    location: "Lauterbrunnen Valley",
+                    description: "Walk through waterfall-filled alpine scenery.",
+                    cost: 0,
+                    currency: "CHF",
+                    country: "Switzerland"
+                }
+            ]
+        }
+    ],
+
+    austria: [
+        {
+            day: 1,
+            title: "Imperial Vienna",
+            activities: [
+                {
+                    time: "09:30 AM",
+                    location: "Schonbrunn Palace",
+                    description: "Explore the palace and gardens.",
+                    cost: 29,
+                    currency: "EUR",
+                    country: "Austria"
+                },
+                {
+                    time: "03:00 PM",
+                    location: "Cafe Central",
+                    description: "Traditional Viennese coffee experience.",
+                    cost: 12,
+                    currency: "EUR",
+                    country: "Austria"
+                }
+            ]
+        }
+    ]
+};
+
+let activeItinerary = [];
+
+window.onload = () => {
+
+    const saved = localStorage.getItem("cached_alpine_trip");
+
+    if (saved) {
+        activeItinerary = JSON.parse(saved);
+        renderCanvas();
+    } else {
+        loadTemplate("switzerland");
+    }
+};
+
+function saveState() {
+    localStorage.setItem(
+        "cached_alpine_trip",
+        JSON.stringify(activeItinerary)
+    );
+}
+
+function loadTemplate(key) {
+    activeItinerary = JSON.parse(JSON.stringify(templates[key]));
+    saveState();
+    renderCanvas();
+}
+
+function calculateBudgets() {
+
+    let chfTotal = 0;
+    let eurTotal = 0;
+
+    activeItinerary.forEach(day => {
+        day.activities.forEach(act => {
+
+            const cost = Number(act.cost) || 0;
+
+            if (act.currency === "CHF") {
+                chfTotal += cost;
+            }
+
+            if (act.currency === "EUR") {
+                eurTotal += cost;
+            }
+
+        });
+    });
+
+    document.getElementById("swiss-total").innerText =
+        `CHF ${chfTotal.toLocaleString()}`;
+
+    document.getElementById("austria-total").innerText =
+        `€${eurTotal.toLocaleString()}`;
+}
+
+function renderCanvas() {
+
+    const container =
+        document.getElementById("canvas-container");
+
+    container.innerHTML = "";
+
+    calculateBudgets();
+
+    if (activeItinerary.length === 0) {
+        container.innerHTML = `
+        <div class="text-center py-24 border border-dashed border-slate-800 rounded-2xl">
+            <p class="text-slate-500">
+                No stops pinned to your canvas yet.
+            </p>
+        </div>
+        `;
+        return;
+    }
+
+    activeItinerary.forEach((dayPlan, dayIdx) => {
+
+        const card = document.createElement("div");
+
+        card.className =
+            "bg-slate-900/30 border border-slate-900 rounded-2xl p-6";
+
+        let activitiesHTML = "";
+
+        dayPlan.activities.forEach((act, actIdx) => {
+
+            const costText =
+                act.cost === 0
+                ? "Free"
+                : `${act.currency} ${act.cost}`;
+
+            activitiesHTML += `
+            <div class="relative p-4 rounded-xl bg-slate-950/40 border border-slate-900">
+
+                <button
+                    onclick="deleteStop(${dayIdx},${actIdx})"
+                    class="absolute right-2 top-2 text-red-400">
+                    ✕
+                </button>
+
+                <div class="text-xs text-slate-500 mb-1">
+                    ${act.time}
+                </div>
+
+                <div class="font-semibold">
+                    ${act.location}
+                </div>
+
+                <div class="text-xs text-emerald-400 mb-2">
+                    ${act.country}
+                </div>
+
+                <div class="text-sm text-slate-400 mb-2">
+                    ${act.description}
+                </div>
+
+                <div class="text-xs text-slate-500">
+                    Cost: ${costText}
+                </div>
+
+            </div>
+            `;
+        });
+
+        card.innerHTML = `
+        <div class="mb-4 border-b border-slate-900 pb-2">
+            <h3 class="font-bold text-emerald-400">
+                Day ${dayPlan.day}: ${dayPlan.title}
+            </h3>
+        </div>
+
+        <div class="space-y-3">
+            ${activitiesHTML}
+        </div>
+        `;
+
+        container.appendChild(card);
+
+    });
+
+    if (window.lucide) {
+        lucide.createIcons();
+    }
+}
+
+function addCustomStop() {
+
+    const day =
+        parseInt(document.getElementById("form-day").value) || 1;
+
+    const time =
+        document.getElementById("form-time").value || "Anytime";
+
+    const location =
+        document.getElementById("form-location").value || "New Location";
+
+    const cost =
+        parseFloat(document.getElementById("form-cost-amount").value) || 0;
+
+    const currency =
+        document.getElementById("form-currency").value;
+
+    const description =
+        document.getElementById("form-desc").value || "Custom activity";
+
+    const country =
+        currency === "CHF"
+            ? "Switzerland"
+            : "Austria";
+
+    let targetDay =
+        activeItinerary.find(d => d.day === day);
+
+    if (!targetDay) {
+
+        targetDay = {
+            day: day,
+            title: "Custom Excursion",
+            activities: []
+        };
+
+        activeItinerary.push(targetDay);
+
+        activeItinerary.sort((a,b) => a.day - b.day);
+    }
+
+    targetDay.activities.push({
+
+        time,
+        location,
+        description,
+        cost,
+        currency,
+        country
+
+    });
+
+    saveState();
+    renderCanvas();
+
+    document.getElementById("form-location").value = "";
+    document.getElementById("form-cost-amount").value = "";
+    document.getElementById("form-desc").value = "";
+}
+
+function deleteStop(dayIdx, actIdx) {
+
+    activeItinerary[dayIdx]
+        .activities
+        .splice(actIdx, 1);
+
+    if (
+        activeItinerary[dayIdx].activities.length === 0
+    ) {
+        activeItinerary.splice(dayIdx, 1);
+    }
+
+    saveState();
+    renderCanvas();
+}
+
+function resetItinerary() {
+
+    activeItinerary = [];
+
+    saveState();
+    renderCanvas();
+}
+
+function exportToMarkdown() {
+
+    let md = `# 🏔️ Alpine Travel Itinerary
+
+`;
+
+    activeItinerary.forEach(day => {
+
+        md += `## 📅 Day ${day.day}: ${day.title}
+
+`;
+
+        day.activities.forEach(act => {
+
+            const cost =
+                act.cost === 0
+                    ? "Free"
+                    : `${act.currency} ${act.cost}`;
+
+            md += `* **${act.time}** - ${act.location} (${act.country})
+  * Notes: ${act.description}
+  * Cost: ${cost}
+
+`;
+        });
+    });
+
+    const blob = new Blob(
+        [md],
+        { type: "text/markdown" }
+    );
+
+    const a = document.createElement("a");
+
+    a.href = URL.createObjectURL(blob);
+    a.download = "my-alpine-itinerary.md";
+    a.click();
+}
+
+</script>
+
+</body>
+</html>

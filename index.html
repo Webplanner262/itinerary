@@ -146,7 +146,7 @@ input:focus, select:focus, textarea:focus {
                 <input id="f-day" type="number" min="1" value="1" class="mt-1 w-full rounded-xl border border-[#dce8df] bg-white p-3 text-sm">
               </label>
               <label class="text-xs font-bold text-[#66817a]">START TIME
-                <input id="f-time" type="time" min="09:00" max="22:00" value="09:00" class="mt-1 w-full rounded-xl border border-[#dce8df] bg-white p-3 text-sm">
+                <input id="f-time" type="time" class="mt-1 w-full rounded-xl border border-[#dce8df] bg-white p-3 text-sm">
               </label>
             </div>
             <label class="text-xs font-bold text-[#66817a]">QUICK MEAL OPTION
@@ -368,25 +368,10 @@ input:focus, select:focus, textarea:focus {
     return (parseInt(parts[0], 10) || 9) * 60 + (parseInt(parts[1], 10) || 0);
   }
 
-  /* Recalculate day's times so the timeline fits inside 09:00 -> 22:00.
-     Activities ordered by sort_order then existing time. Each activity
-     starts when the previous one ends; late activities get clamped to 22:00. */
-  function fitDay(day) {
-    var list = stops
-      .filter(function (s) { return Number(s.day) === Number(day); })
-      .sort(function (a, b) {
-        return a.sort_order - b.sort_order || String(a.time).localeCompare(String(b.time));
-      });
-    if (!list.length) return;
-    var next = timeToMin(OPEN);
-    list.forEach(function (s, i) {
-      var dur = Math.max(15, Number(s.duration_minutes) || 60);
-      s.time = minToTime(next);
-      s.sort_order = i;
-      next = Math.min(next + dur, timeToMin(CLOSE));
-    });
-    saveStops();
-  }
+  /* No longer re-times the day. Each activity keeps the exact start time the
+     user entered; activities are only ordered by that time so the timeline
+     displays in chronological order. */
+  function fitDay() {}
 
   /* ------------------ CRUD (replace api.insert / api.update / api.remove) ------------------
      Every function mutates the in-memory `stops` array and calls saveStops().
@@ -415,12 +400,8 @@ input:focus, select:focus, textarea:focus {
 
   /* ------------------ public actions ------------------ */
   window.addStop = function () {
-
-  console.log("ADD BUTTON CLICKED");
     var day = Math.max(1, parseInt(document.getElementById('f-day').value, 10) || 1);
     var t = document.getElementById('f-time').value || OPEN;
-    if (t < OPEN) t = OPEN;
-    if (t > CLOSE) t = CLOSE;
 
     var dayCountry = document.getElementById('f-day-country').value;
     var dayTitle   = document.getElementById('f-day-title').value.trim() || (dayCountry + ' itinerary');
@@ -432,24 +413,12 @@ input:focus, select:focus, textarea:focus {
     var country    = currency === 'EUR' ? 'Austria' : currency === 'CHF' ? 'Switzerland' : 'Singapore';
 
     var existing = stops.filter(function (s) { return Number(s.day) === day; });
-    console.log({
-  day,
-  dayTitle,
-  dayCountry,
-  location,
-  duration,
-  cost,
-  currency,
-  description,
-  country
-});
     insertStop({
       day: day, day_title: dayTitle, day_country: dayCountry,
       time: t, location: location, description: description,
       cost: cost, currency: currency, country: country,
       duration_minutes: duration, sort_order: existing.length
     });
-    fitDay(day);
     render();
     ['f-location','f-cost','f-description'].forEach(function (id) { document.getElementById(id).value = ''; });
     document.getElementById('f-meal').value = '';
@@ -467,7 +436,6 @@ input:focus, select:focus, textarea:focus {
     var s = stops.find(function (x) { return Number(x.id) === Number(id); });
     if (!s) return;
     updateStop(id, { duration_minutes: minutes });
-    fitDay(s.day);
     render();
     flash('Timeline fitted');
   };
@@ -499,27 +467,9 @@ input:focus, select:focus, textarea:focus {
   window.editTime = function (id, value) {
     var s = stops.find(function (x) { return Number(x.id) === Number(id); });
     if (!s || !value) return;
-    if (value < OPEN) value = OPEN;
-    if (value > CLOSE) value = CLOSE;
-
-    // Re-appearance behaviour: if user wants the activity at a specific wall-clock
-    // time, anchor the day at that time and re-fit so it stays within hours.
+    // The exact time the user picks is the start time — we do not shift any
+    // other activities. They simply display in chronological order.
     updateStop(id, { time: value });
-    // Re-derive sort order for this card so subsequent cards flow from that wall time.
-    var list = stops
-      .filter(function (x) { return Number(x.day) === Number(s.day); })
-      .sort(function (a, b) {
-        return String(a.time).localeCompare(String(b.time)) || a.sort_order - b.sort_order;
-      });
-    list.forEach(function (x, i) { x.sort_order = i; });
-    // Shift subsequent stops forward if the user's chosen time pushes them past 22:00.
-    var prev = timeToMin(list[0].time);
-    list.forEach(function (x, i) {
-      if (i === 0) return;
-      var proj = timeToMin(list[i-1].time) + Math.max(15, Number(list[i-1].duration_minutes) || 60);
-      var cap  = timeToMin(CLOSE);
-      x.time   = timeToMin(x.time) < proj ? minToTime(Math.min(proj, cap)) : minToTime(Math.min(timeToMin(x.time), cap));
-    });
     saveStops();
     render();
     flash('Time saved');
@@ -554,7 +504,7 @@ input:focus, select:focus, textarea:focus {
     if (!s || Number(s.day) === Number(day)) return;
     var target = stops.filter(function (x) { return Number(x.day) === Number(day); }).sort(function (a, b) { return a.sort_order - b.sort_order; });
     updateStop(s.id, { day: Number(day), day_title: target[0] ? target[0].day_title : 'Custom Excursion', day_country: target[0] ? target[0].day_country : (s.day_country || s.country || 'Switzerland'), sort_order: target.length });
-    fitDay(day); render(); flash("Plan moved and fitted");
+    render(); flash("Plan moved");
   };
 
   function wireDrag() {
@@ -584,7 +534,6 @@ input:focus, select:focus, textarea:focus {
       d.items.forEach(function (x, i) {
         insertStop({ day: d.day, day_title: d.title, day_country: d.country, time: x[0], location: x[1], description: x[2], cost: x[3], currency: x[4], country: x[5], duration_minutes: x[6], sort_order: i });
       });
-      fitDay(d.day);
     });
     render();
     flash(verb + " route loaded");
@@ -615,7 +564,7 @@ input:focus, select:focus, textarea:focus {
     var box = document.getElementById("itinerary");
     box.innerHTML = days.map(function (day) {
       var list = grouped[day].sort(function (a, b) {
-        return a.sort_order - b.sort_order || String(a.time).localeCompare(String(b.time));
+        return String(a.time).localeCompare(String(b.time)) || a.id - b.id;
       });
       var title = list[0].day_title || "Custom Excursion";
       var country = list[0].day_country || list[0].country || "Switzerland";
@@ -656,7 +605,7 @@ input:focus, select:focus, textarea:focus {
         <div class="flex flex-col items-center gap-1 w-20 shrink-0">
           <i data-lucide="grip-vertical" class="w-4 h-4 text-[#9ab5aa]"></i>
           <label class="w-full text-[9px] uppercase tracking-wide text-[#8aa199]">Time
-            <input data-field="time" data-id="${s.id}" type="time" min="09:00" max="22:00"
+            <input data-field="time" data-id="${s.id}" type="time"
                    value="${esc(String(s.time).slice(0,5))}"
                    onchange="editTime(${s.id}, this.value)"
                    class="mt-1 w-full rounded-lg border border-[#e2ece6] p-1.5 text-[11px] text-[#2d7b70] font-bold">
@@ -760,7 +709,7 @@ input:focus, select:focus, textarea:focus {
              'Total listed cost ≈ **SGD ' + totalCostAll().toLocaleString() + '**\n\n';
     const days = [...new Set(stops.map(s => s.day))].sort((a, b) => a - b);
     days.forEach(d => {
-      const items = stops.filter(s => s.day == d).sort((a, b) => a.sort_order - b.sort_order);
+      const items = stops.filter(s => s.day == d).sort((a, b) => String(a.time).localeCompare(String(b.time)) || a.id - b.id);
       const first = items[0] || {};
       md += `## Day ${d}: ${first.day_title || 'Custom Excursion'} — ${first.day_country || ''}\n\n`;
       items.forEach(s => {

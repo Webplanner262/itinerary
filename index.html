@@ -156,7 +156,7 @@ input:focus, select:focus, textarea:focus {
             </div>
             <i data-lucide="compass" class="w-5 h-5 text-[#d89f36]"></i>
           </div>
-          <div class="grid grid-cols-3 gap-3" id="stats"></div>
+          <div class="grid grid-cols-3 sm:grid-cols-4 gap-3" id="stats"></div>
           <div class="mt-4 text-[11px] text-[#94aaa2] mb-3" id="cost-summary"></div>
         </div>
       </section>
@@ -219,6 +219,12 @@ input:focus, select:focus, textarea:focus {
             <label class="text-xs font-bold text-[#66817a]">DAY TITLE
               <input id="f-day-title" placeholder="e.g. Swiss lakes &amp; peaks" class="mt-1 w-full rounded-xl border border-[#dce8df] bg-white p-3 text-sm">
             </label>
+            <label class="text-xs font-bold text-[#66817a]">TRIP START DATE (sets Day 1, then auto-advances)
+              <div class="mt-1 flex gap-2">
+                <input id="f-trip-start" type="date" onchange="setTripStart(this.value)" class="w-full rounded-xl border border-[#dce8df] bg-white p-3 text-sm">
+              </div>
+              <p class="mt-1 text-[10px] text-[#8299a0]">Per-day dates auto-filled from Day 1; adjust any day in its header.</p>
+            </label>
             <label class="text-xs font-bold text-[#66817a]">PLAN / PLACE
               <input id="f-location" placeholder="e.g. Lake Lucerne" class="mt-1 w-full rounded-xl border border-[#dce8df] bg-white p-3 text-sm">
             </label>
@@ -259,8 +265,8 @@ input:focus, select:focus, textarea:focus {
      Project URL      — Supabase dashboard → Settings → API → "Project URL"
      anon public key  — Supabase dashboard → Settings → API → "anon public" key
      Both are safe to expose to the browser; RLS keeps user data private.  */
-  const SUPABASE_URL      = 'https://pggtgxahwhzymzanjnvv.supabase.co' ;
-  const SUPABASE_ANON_KEY = 'sb_publishable_RnZdaV7h7wiNOFQ6Qhbk5Q_qL6z8AGD' ;
+  const SUPABASE_URL      = "https://pggtgxahwhzymzanjnvv.supabase.co";
+  const SUPABASE_ANON_KEY = "sb_publishable_RnZdaV7h7wiNOFQ6Qhbk5Q_qL6z8AGD";
   const supabaseClient    = window.supabase
       ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
       : null;
@@ -277,6 +283,8 @@ input:focus, select:focus, textarea:focus {
   let draggedId = null;
   let dayCollapsed = {};
   let currentUser = null;
+  let tripStart = '';              // 'YYYY-MM-DD' day-1 calendar date
+  let dayDates = {};               // { "1": "YYYY-MM-DD", ... } per-day overrides
 
   /* ------------------ PERSISTENCE (Supabase — one itineraries row per signed-in user) ------------------
      Full app state is serialised into the `payload jsonb` column:
@@ -286,7 +294,7 @@ input:focus, select:focus, textarea:focus {
      private.  Every call is a no-op when no user is signed in.       */
   async function saveStops() {
     if (!supabaseClient || !currentUser) return;
-    const payload = { stops: stops, idSequence: idSequence, dayCollapsed: dayCollapsed };
+    const payload = { stops: stops, idSequence: idSequence, dayCollapsed: dayCollapsed, tripStart: tripStart, dayDates: dayDates };
     try {
       const { error } = await supabaseClient
         .from('itineraries')
@@ -302,7 +310,7 @@ input:focus, select:focus, textarea:focus {
   }
 
   async function loadStops() {
-    stops = []; idSequence = 0; dayCollapsed = {};
+    stops = []; idSequence = 0; dayCollapsed = {}; tripStart = ''; dayDates = {};
     if (!supabaseClient || !currentUser) return;
     try {
       const { data, error } = await supabaseClient
@@ -331,6 +339,8 @@ input:focus, select:focus, textarea:focus {
       });
       idSequence = Number(p.idSequence) || list.reduce(function (m, s) { return Math.max(m, s.id); }, 0);
       dayCollapsed = (p.dayCollapsed && typeof p.dayCollapsed === 'object') ? p.dayCollapsed : {};
+      tripStart = typeof p.tripStart === 'string' ? p.tripStart : '';
+      dayDates = (p.dayDates && typeof p.dayDates === 'object') ? p.dayDates : {};
       stops = list;
     } catch (e) { console.warn('loadStops failed:', e); }
   }
@@ -346,9 +356,73 @@ input:focus, select:focus, textarea:focus {
     stops = [];
     idSequence = 0;
     dayCollapsed = {};
+    tripStart = '';
+    dayDates = {};
   }
 
   function nextId() { idSequence += 1; return idSequence; }
+
+  /* ------------------ dates + per-day budgets ------------------ */
+  // Add n calendar days to a 'YYYY-MM-DD' string; returns '' if input is empty.
+  function shiftDate(dateStr, n) {
+    if (!dateStr) return '';
+    var d = new Date(dateStr + 'T00:00:00');
+    if (isNaN(d.getTime())) return '';
+    d.setDate(d.getDate() + n);
+    var y = d.getFullYear();
+    var m = String(d.getMonth() + 1).padStart(2, '0');
+    var dd = String(d.getDate()).padStart(2, '0');
+    return y + '-' + m + '-' + dd;
+  }
+
+  // Effective date for a day: explicit override wins, else derived from tripStart.
+  function dayDate(day) {
+    if (dayDates[day]) return dayDates[day];
+    if (tripStart) return shiftDate(tripStart, (Number(day) || 1) - 1);
+    return '';
+  }
+
+  // Human label, e.g. "Fri 6 Nov" or "6 Nov" (no weekday when no date).
+  function fmtDayDate(day) {
+    var iso = dayDate(day);
+    if (!iso) return '';
+    var d = new Date(iso + 'T00:00:00');
+    if (isNaN(d.getTime())) return '';
+    var weekday = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][d.getDay()];
+    return weekday + ' ' + d.getDate() + ' ' +
+           d.toLocaleString('en', { month: 'short' });
+  }
+
+  function toSGD(cost, currency) {
+    if (!RATES[currency]) return 0;
+    return (Number(cost) / RATES[currency]) * RATES.SGD;
+  }
+
+  // { totalSGD, byCurrency: {EUR: 12, CHF: 5}, currencies: ['EUR'] }
+  function dayTotals(list) {
+    var byCurrency = {};
+    var totalSGD = 0;
+    list.forEach(function (s) {
+      var c = Number(s.cost) || 0;
+      var cur = s.currency || 'SGD';
+      byCurrency[cur] = (byCurrency[cur] || 0) + c;
+      totalSGD += toSGD(c, cur);
+    });
+    return {
+      totalSGD: totalSGD,
+      byCurrency: byCurrency,
+      currencies: Object.keys(byCurrency)
+    };
+  }
+
+  function costLabel(totals) {
+    var parts = totals.currencies.map(function (c) {
+      var v = totals.byCurrency[c];
+      return c + ' ' + (Number.isInteger(v) ? v : v.toFixed(2));
+    });
+    if (!parts.length) return 'Free day';
+    return parts.join(' · ') + '  ≈ SGD ' + Math.round(totals.totalSGD);
+  }
 
   /* ------------------ tiny utilities ------------------ */
   function esc(v) {
@@ -642,6 +716,23 @@ input:focus, select:focus, textarea:focus {
     if (!getDesc.value.trim()) getDesc.value = "Suggested time for " + value.toLowerCase() + ".";
   };
 
+  /* ------------------ trip dates ------------------ */
+  window.setTripStart = async function (value) {
+    tripStart = value;                 // '' allowed => no dates
+    // Clear per-day overrides so derived dates follow the new start date.
+    dayDates = {};
+    saveStops();
+    render();
+    if (value) flash('Dates set from ' + fmtDayDate(1));
+  };
+
+  window.setDayDate = async function (day, value) {
+    if (value) dayDates[day] = value;
+    else delete dayDates[day];
+    saveStops();
+    render();
+  };
+
   /* ------------------ render: itinerary ------------------ */
   function render() {
     renderCurrencies(); renderStats();
@@ -656,16 +747,26 @@ input:focus, select:focus, textarea:focus {
       var title = list[0].day_title || "Custom Excursion";
       var country = list[0].day_country || list[0].country || "Switzerland";
       var collapsed = dayCollapsed[day];
+      var dateLabel = fmtDayDate(day);
+      var iso = dayDate(day);
+      var totals = dayTotals(list);
       return `
         <div class="day-block ${collapsed ? 'is-collapsed' : ''}"><!-- day ${day} --></div>
         <article class="day-card paper rounded-3xl border border-[#dce8df] shadow-soft flex flex-col overflow-hidden">
           <div class="day-head px-3 sm:px-4 py-2.5 bg-[#edf5ef] border-b border-[#dce8df] flex items-center gap-2">
             <div class="flex items-baseline gap-1 shrink-0"><span class="text-[9px] uppercase tracking-widest font-bold text-[#7d9d91]">Day</span><strong class="text-lg leading-none">${esc(day)}</strong></div>
             <button type="button" data-day-toggle="${day}" aria-expanded="${!collapsed}" aria-controls="day-body-${day}" class="text-[#5b7a70] hover:text-[#2d7b70] p-1 rounded-lg -ml-1 shrink-0" title="${collapsed ? 'Expand' : 'Collapse'} this day"><i data-lucide="menu" class="w-4 h-4"></i></button>
-            <div class="flex-1 min-w-0 h-4 flex items-center border-l border-[#cddfdc] px-2"><i data-lucide="chevron-${collapsed ? 'down' : 'up'}" class="w-4 h-4 text-[#7d9d91]"></i></div>
+            <div class="flex-1 min-w-0 h-4 flex items-center border-l border-[#cddfdc] px-2 text-[#5b7a70]">
+              ${dateLabel
+                ? '<i data-lucide="calendar-days" class="w-3.5 h-3.5 mr-1 text-[#7d9d91]"></i><span class="text-[11px] font-semibold truncate">' + esc(dateLabel) + '</span>'
+                : '<span class="text-[11px] text-[#9db3ab]">No date — set trip start</span>'}
+            </div>
             <div class="flex items-center gap-1.5 shrink-0 flex-wrap justify-end">
               <span class="badge-${esc(country)} text-[9px] uppercase tracking-wider px-2 py-0.5 rounded-full" title="${esc(country)}">${flag(country)}</span>
-              <span class="text-[10px] text-[#6e8a81]">${list.length}</span>
+              <input type="date" value="${esc(iso)}" onchange="setDayDate(${day}, this.value)"
+                     class="text-[11px] text-[#2d7b70] font-semibold rounded-lg border border-[#d3e2d8] bg-white p-1"
+                     title="Override the date for Day ${day}">
+              <span class="text-[10px] text-[#6e8a81] whitespace-nowrap" title="Cost total for Day ${day}">${esc(costLabel(totals))}</span>
             </div>
           </div>
           <div id="day-body-${day}" class="day-body ${collapsed ? 'day-collapsed' : ''}">
@@ -743,6 +844,17 @@ input:focus, select:focus, textarea:focus {
 
   function renderStats() {
     const days = new Set(stops.map(s => s.day)).size;
+    // Keep the form's trip-start field in sync with the persisted value.
+    const tripStartEl = document.getElementById('f-trip-start');
+    if (tripStartEl && tripStartEl.value !== tripStart) tripStartEl.value = tripStart;
+    // Compute trip label for the dashboard tile.
+    const dayKeys = [...new Set(stops.map(s => s.day))].sort((a, b) => a - b);
+    let rangeLapsed = '';
+    if (tripStart && dayKeys.length) {
+      rangeLapsed = fmtDayDate(dayKeys[0]) + ' → ' + fmtDayDate(dayKeys[dayKeys.length - 1]);
+    } else if (tripStart) {
+      rangeLapsed = fmtDayDate(1) + ' …';
+    }
     document.getElementById('stats').innerHTML = [
       ['calendar-days', days, 'days'],
       ['map-pinned', stops.length, 'plans'],
@@ -752,7 +864,15 @@ input:focus, select:focus, textarea:focus {
         <i data-lucide="${x[0]}" class="w-4 h-4 text-[#d89f36] mb-2"></i>
         <div class="font-bold text-lg">${x[1]}</div>
         <div class="text-[10px] text-[#78918a] uppercase tracking-wider">${x[2]}</div>
-      </div>`).join('');
+      </div>`).join('') + (
+      rangeLapsed
+        ? `<div class="rounded-2xl bg-[#eef5f0] p-3">
+             <i data-lucide="calendar-range" class="w-4 h-4 text-[#2d7b70] mb-2"></i>
+             <div class="font-bold text-[13px] text-[#2d7b70]">${esc(rangeLapsed)}</div>
+             <div class="text-[10px] text-[#4a6e63] uppercase tracking-wider">trip dates</div>
+           </div>`
+        : ''
+    );
 
     const byCur = {};
     stops.forEach(s => { byCur[s.currency] = (byCur[s.currency] || 0) + Number(s.cost || 0); });
@@ -792,18 +912,26 @@ input:focus, select:focus, textarea:focus {
 
   /* ------------------ markdown export ------------------ */
   window.exportMarkdown = function () {
-    let md = '# Alpine Atlas Itinerary\n\n' +
-             'Total listed cost ≈ **SGD ' + totalCostAll().toLocaleString() + '**\n\n';
+    let md = '# Alpine Atlas Itinerary\n\n';
     const days = [...new Set(stops.map(s => s.day))].sort((a, b) => a - b);
+    if (tripStart && days.length) {
+      const firstLabel = fmtDayDate(days[0]);
+      const lastLabel = fmtDayDate(days[days.length - 1]);
+      md += `**${firstLabel} → ${lastLabel}** (${days.length} day${days.length > 1 ? 's' : ''})\n\n`;
+    }
+    md += 'Total listed cost ≈ **SGD ' + totalCostAll().toLocaleString() + '**\n\n';
     days.forEach(d => {
       const items = stops.filter(s => s.day == d).sort((a, b) => String(a.time).localeCompare(String(b.time)) || a.id - b.id);
       const first = items[0] || {};
-      md += `## Day ${d}: ${first.day_title || 'Custom Excursion'} — ${first.day_country || ''}\n\n`;
+      const dateL = fmtDayDate(d);
+      const totals = dayTotals(items);
+      md += `## Day ${d}${dateL ? ' — ' + dateL : ''}: ${first.day_title || 'Custom Excursion'} — ${first.day_country || ''}\n\n`;
       items.forEach(s => {
         md += `- **${s.time}** · ${s.location} (${s.duration_minutes} min)\n`;
         md += `  - ${s.description}\n`;
         md += `  - Cost: ${s.cost ? s.currency + ' ' + s.cost : 'Free'}\n\n`;
       });
+      md += `_Day total: ${costLabel(totals)}_\n\n`;
     });
     if (!days.length) md += '_No plans yet._\n';
     const a = document.createElement('a');
@@ -834,6 +962,8 @@ input:focus, select:focus, textarea:focus {
     stops = [];
     idSequence = 0;
     dayCollapsed = {};
+    tripStart = '';
+    dayDates = {};
     render();
   }
 
@@ -922,6 +1052,8 @@ input:focus, select:focus, textarea:focus {
     stops = [];
     idSequence = 0;
     dayCollapsed = {};
+    tripStart = '';
+    dayDates = {};
     render();
     showAuth();
     setAuthMsg('Signed out.', false);

@@ -259,8 +259,8 @@ input:focus, select:focus, textarea:focus {
      Project URL      — Supabase dashboard → Settings → API → "Project URL"
      anon public key  — Supabase dashboard → Settings → API → "anon public" key
      Both are safe to expose to the browser; RLS keeps user data private.  */
-  const SUPABASE_URL      = "https://pggtgxahwhzymzanjnvv.supabase.co/rest/v1/";
-  const SUPABASE_ANON_KEY = "sb_publishable_RnZdaV7h7wiNOFQ6Qhbk5Q_qL6z8AGD";
+  const SUPABASE_URL      = https://pggtgxahwhzymzanjnvv.supabase.co/rest/v1/ ;
+  const SUPABASE_ANON_KEY = sb_publishable_RnZdaV7h7wiNOFQ6Qhbk5Q_qL6z8AGD ;
   const supabaseClient    = window.supabase
       ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
       : null;

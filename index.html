@@ -6,6 +6,7 @@
 <title>Alpine Atlas · Itinerary Planner</title>
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="https://unpkg.com/lucide@latest"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet">
@@ -44,6 +45,44 @@ input:focus, select:focus, textarea:focus {
 </style>
 </head>
 <body class="min-h-screen text-[#173b3d]">
+<!-- ============ AUTH GATE (covers the app until signed in) ============ -->
+<div id="authgate" class="hidden fixed inset-0 z-[100] bg-[#f5f7f4]/95 backdrop-blur-sm">
+  <div class="min-h-screen flex items-center justify-center p-4">
+    <div class="w-full max-w-md bg-white rounded-2xl shadow-xl p-8">
+      <div class="flex items-center gap-3 mb-6">
+        <div class="w-11 h-11 rounded-2xl bg-[#f2c66d] text-[#173b3d] flex items-center justify-center">
+          <i data-lucide="mountain" class="w-6 h-6"></i>
+        </div>
+        <div>
+          <div class="text-[10px] tracking-[.25em] uppercase text-[#66817a]">Alpine Atlas</div>
+          <div class="serif text-xl">Sign in</div>
+        </div>
+      </div>
+      <p id="auth-msg" class="text-sm text-[#5a7068] leading-relaxed mb-5">
+        Sign in to load and save your itinerary from Supabase.
+      </p>
+      <form id="auth-form" class="space-y-4">
+        <input id="auth-email" type="email" required placeholder="you@example.com"
+               class="w-full rounded-xl border border-[#dce8df] bg-white p-3 text-sm">
+        <input id="auth-pass" type="password" required minlength="6" placeholder="Password (≥6 chars)"
+               class="w-full rounded-xl border border-[#dce8df] bg-white p-3 text-sm">
+        <div class="flex gap-2">
+          <button type="submit" id="auth-submit"
+                  class="flex-1 rounded-full bg-[#2d7b70] text-white px-5 py-3 font-semibold hover:opacity-90 transition">
+            Sign in
+          </button>
+          <button type="button" id="auth-toggle"
+                  class="rounded-full border border-[#2d7b70] text-[#2d7b70] px-5 py-3 font-semibold hover:bg-[#2d7b70]/5 transition">
+            Sign up
+          </button>
+        </div>
+      </form>
+      <p class="mt-4 text-xs text-[#66817a] text-center">
+        Your data is stored in Supabase and visible on any device signed in with the same account.
+      </p>
+    </div>
+  </div>
+</div>
 <div class="min-h-screen lg:flex">
   <!-- Hero / brand sidebar -->
   <aside class="lg:w-[360px] xl:w-[390px] mountain text-white p-6 lg:p-8 relative overflow-hidden">
@@ -66,7 +105,12 @@ input:focus, select:focus, textarea:focus {
       </div>
       <div class="border-t border-white/20 pt-5 flex items-center justify-between text-xs text-[#b8d9cc]">
         <span class="flex items-center gap-2"><i data-lucide="move" class="w-4 h-4"></i> Drag to arrange</span>
-        <span id="saved-status">Loading…</span>
+        <div class="flex items-center gap-2">
+          <span id="auth-user" class="text-[#f2c66d] italic truncate max-w-[160px]"></span>
+          <button type="button" id="signout-btn" onclick="signOut()"
+                  class="text-[10px] hover:text-[#f2c66d] underline"
+                  style="display:none;">Sign out</button>
+        </div>
       </div>
     </div>
   </aside>
@@ -211,34 +255,65 @@ input:focus, select:focus, textarea:focus {
 (function () {
   'use strict';
 
-  const STORAGE_KEY = 'alpineAtlasItinerary_v1';
+  /* ------------------ CONFIG (paste your Supabase values here) ------------------
+     Project URL      — Supabase dashboard → Settings → API → "Project URL"
+     anon public key  — Supabase dashboard → Settings → API → "anon public" key
+     Both are safe to expose to the browser; RLS keeps user data private.  */
+  const SUPABASE_URL      = "https://pggtgxahwhzymzanjnvv.supabase.co/rest/v1/";
+  const SUPABASE_ANON_KEY = "sb_publishable_RnZdaV7h7wiNOFQ6Qhbk5Q_qL6z8AGD";
+  const supabaseClient    = window.supabase
+      ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+      : null;
   const RATES = { SGD: 1, CHF: 0.66, EUR: 0.69 };
   const OPEN = '09:00', CLOSE = '22:00';
 
   /* ------------------------------------------------------------------
      DATA MODEL  ->  let stops = []
      Every operation below reads from / writes to this in-memory array
-     and persists to LocalStorage via saveStops().
+     and persists to Supabase via saveStops().
      ------------------------------------------------------------------ */
   let stops = [];
   let idSequence = 0;
   let draggedId = null;
   let dayCollapsed = {};
+  let currentUser = null;
 
-  /* ------------------ PERSISTENCE (LocalStorage) ------------------ */
-  function saveStops() {
+  /* ------------------ PERSISTENCE (Supabase — one itineraries row per signed-in user) ------------------
+     Full app state is serialised into the `payload jsonb` column:
+       { stops: [...], idSequence: number, dayCollapsed: {...} }
+     If you later normalise into a `stops` table, only the mapping in
+     loadStops() and saveStops() needs to change.  RLS keeps each user
+     private.  Every call is a no-op when no user is signed in.       */
+  async function saveStops() {
+    if (!supabaseClient || !currentUser) return;
+    const payload = { stops: stops, idSequence: idSequence, dayCollapsed: dayCollapsed };
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify({ stops: stops, idSequence: idSequence, dayCollapsed: dayCollapsed }));
-    } catch (e) { console.warn('saveStops failed', e); }
+      const { error } = await supabaseClient
+        .from('itineraries')
+        .upsert(
+          { owner_id: currentUser.id, payload: payload },
+          { onConflict: 'owner_id' }
+        );
+      if (error) throw error;
+    } catch (e) {
+      console.warn('saveStops failed:', e);
+      flash('Save failed — check connection', true);
+    }
   }
 
-  function loadStops() {
+  async function loadStops() {
+    stops = []; idSequence = 0; dayCollapsed = {};
+    if (!supabaseClient || !currentUser) return;
     try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if (!raw) { stops = []; idSequence = 0; return; }
-      const data = JSON.parse(raw) || {};
-      const list = Array.isArray(data.stops) ? data.stops : [];
-      stops = list.map(function (r) {
+      const { data, error } = await supabaseClient
+        .from('itineraries')
+        .select('payload')
+        .eq('owner_id', currentUser.id)
+        .maybeSingle();
+      if (error) { console.warn('loadStops failed:', error); return; }
+      if (!data || !data.payload) return;
+      const p = data.payload;
+      const list = (Array.isArray(p.stops) ? p.stops : []).map(function (r) {
         return {
           id: Number(r.id),
           day: Number(r.day),
@@ -254,15 +329,23 @@ input:focus, select:focus, textarea:focus {
           sort_order: Number(r.sort_order) || 0
         };
       });
-      idSequence = Number(data.idSequence) || stops.reduce(function (m, s) { return Math.max(m, s.id); }, 0);
-      dayCollapsed = (data.dayCollapsed && typeof data.dayCollapsed === 'object') ? data.dayCollapsed : {};
-    } catch (e) { console.warn('loadStops failed', e); stops = []; idSequence = 0; }
+      idSequence = Number(p.idSequence) || list.reduce(function (m, s) { return Math.max(m, s.id); }, 0);
+      dayCollapsed = (p.dayCollapsed && typeof p.dayCollapsed === 'object') ? p.dayCollapsed : {};
+      stops = list;
+    } catch (e) { console.warn('loadStops failed:', e); }
   }
 
-  function clearStops() {
-    try { localStorage.removeItem(STORAGE_KEY); } catch (e) {}
+  async function clearStops() {
+    if (supabaseClient && currentUser) {
+      const { error } = await supabaseClient
+        .from('itineraries')
+        .delete()
+        .eq('owner_id', currentUser.id);
+      if (error) console.warn('clearStops failed:', error);
+    }
     stops = [];
     idSequence = 0;
+    dayCollapsed = {};
   }
 
   function nextId() { idSequence += 1; return idSequence; }
@@ -289,8 +372,7 @@ input:focus, select:focus, textarea:focus {
   var _flashTimer = null;
   function flash(t) {
     var e = document.getElementById('saved-status');
-    if (!e) return;
-    e.textContent = t;
+    if (e) e.textContent = t;
     clearTimeout(_flashTimer);
     _flashTimer = setTimeout(function () { e.textContent = 'Saved locally'; }, 1500);
   }
@@ -399,7 +481,7 @@ input:focus, select:focus, textarea:focus {
   }
 
   /* ------------------ public actions ------------------ */
-  window.addStop = function () {
+  window.addStop = async function () {
     var day = Math.max(1, parseInt(document.getElementById('f-day').value, 10) || 1);
     var t = document.getElementById('f-time').value || OPEN;
 
@@ -425,10 +507,15 @@ input:focus, select:focus, textarea:focus {
     flash('Plan added');
   };
 
-  window.editStop = function (id, field, value) {
+  window.editStop = async function (id, field, value) {
+    const s = stops.find(function(x) { return String(x.id) === String(id); });
+    if (!s) return;
+    if (field === 'cost') value = Math.max(0, Number(value) || 0);
+    if (field === 'duration_minutes') value = Math.max(15, Number(value) || 60);
+    // Time is the user-entered start time — no other activities are shifted.
     updateStop(id, { [field]: value });
     render();
-    flash('Plan saved');
+    flash('Saved');
   };
 
   window.editDuration = function (id, value) {
@@ -475,7 +562,7 @@ input:focus, select:focus, textarea:focus {
     flash('Time saved');
   };
 
-  window.deleteStop = function (id) {
+  window.deleteStop = async function (id) {
     if (!confirm('Delete this plan from your itinerary?')) return;
     var target = stops.find(function (s) { return Number(s.id) === Number(id); });
     if (!target) return;
@@ -488,14 +575,13 @@ input:focus, select:focus, textarea:focus {
       .forEach(function (s, i) { s.sort_order = i; });
     saveStops();
     render();
-    
     flash('Plan removed');
   };
 
   /* ------------------ drag & drop helpers ------------------ */
   window.allowDrop = function (e) { e.preventDefault(); e.currentTarget.classList.add("drop-target"); };
 
-  window.dropOnDay = function (e, day) {
+  window.dropOnDay = async function (e, day) {
     e.preventDefault();
     e.currentTarget.classList.remove("drop-target");
     if (!draggedId) return;
@@ -520,10 +606,11 @@ input:focus, select:focus, textarea:focus {
         render();
       });
     });
+
   }
 
   /* ------------------ templates, reset, meal helper ------------------ */
-  window.loadTemplate = function (key) {
+  window.loadTemplate = async function (key) {
     var tpl = TEMPLATES[key];
     if (!tpl) return;
     var verb = key === "grandtour" ? "Grand Tour" : (key === "switzerland" ? "Swiss" : "Austrian");
@@ -539,10 +626,10 @@ input:focus, select:focus, textarea:focus {
     flash(verb + " route loaded");
   };
 
-  window.resetPlan = function () {
-    if (!confirm("Clear this itinerary? This removes all LocalStorage data for this app.")) return;
+  window.resetPlan = async function () {
+    if (!confirm("Clear this itinerary? This removes all saved data from Supabase.")) return;
     dayCollapsed = {};
-    clearStops();
+    await clearStops();
     render();
     flash("Itinerary cleared");
   };
@@ -726,13 +813,153 @@ input:focus, select:focus, textarea:focus {
     flash('Exported markdown');
   };
 
-  /* ------------------ initialisation ------------------
-     On load: pull everything back out of LocalStorage, then render.
-     No auto-loading — the app starts exactly as the user last left it. */
-  window.onload = function () {
-    loadStops();
+  /* ------------------ AUTH ------------------
+     Supabase auth: email/password.  The auth-gate overlay is shown
+     until a session exists.  On success: load from Supabase → render. */
+
+  const authgate   = document.getElementById('authgate');
+  const authForm   = document.getElementById('auth-form');
+  const authMsg    = document.getElementById('auth-msg');
+  const authEmailF = document.getElementById('auth-email');
+  const authPassF  = document.getElementById('auth-pass');
+  const authSubmit = document.getElementById('auth-submit');
+  const authToggle = document.getElementById('auth-toggle');
+
+  let mode = 'signin';   // 'signin' | 'signup'
+
+  function showAuth() {
+    if (!authgate) return;
+    authgate.classList.remove('hidden');
+    currentUser = null;
+    stops = [];
+    idSequence = 0;
+    dayCollapsed = {};
     render();
-    flash('Saved locally');
+  }
+
+  function hideAuth() {
+    if (!authgate) return;
+    authgate.classList.add('hidden');
+    updateAuthUser();
+  }
+
+  function updateAuthUser() {
+    const el = document.getElementById('auth-user');
+    const signOutBtn = document.getElementById('signout-btn');
+    if (!el) return;
+    if (currentUser && currentUser.email) {
+      el.textContent = currentUser.email;
+      if (signOutBtn) signOutBtn.style.display = 'inline-block';
+    } else {
+      el.textContent = '';
+      if (signOutBtn) signOutBtn.style.display = 'none';
+    }
+  }
+
+  function setAuthMsg(text, isError) {
+    if (!authMsg) return;
+    authMsg.textContent = text;
+    authMsg.style.color = isError ? '#c0392b' : '#5a7068';
+  }
+
+  authToggle.addEventListener('click', function () {
+    mode = mode === 'signin' ? 'signup' : 'signin';
+    authSubmit.textContent = mode === 'signin' ? 'Sign in' : 'Create account';
+    authToggle.textContent = mode === 'signin' ? 'Sign up' : 'Sign in';
+    setAuthMsg(
+      mode === 'signin'
+        ? 'Sign in to load and save your itinerary from Supabase.'
+        : 'Create a new account. Your itinerary will be saved to Supabase.',
+      false
+    );
+  });
+
+  authForm.addEventListener('submit', async function (e) {
+    e.preventDefault();
+    const email = authEmailF.value.trim();
+    const password = authPassF.value;
+    if (!supabaseClient) {
+      setAuthMsg('Supabase is not configured. Add your Project URL and anon key in main.html.', true);
+      return;
+    }
+    setAuthMsg(mode === 'signin' ? 'Signing in…' : 'Creating account…', false);
+    try {
+      let data;
+      if (mode === 'signin') {
+        data = await supabaseClient.auth.signInWithPassword({ email: email, password: password });
+      } else {
+        data = await supabaseClient.auth.signUp({ email: email, password: password });
+      }
+      if (data.error) {
+        setAuthMsg(data.error.message, true);
+        return;
+      }
+      const session = data.session;
+      if (session && session.user) {
+        currentUser = session.user;
+        console.log('[AlpineAtlas] Supabase user:', currentUser.email);
+        document.getElementById('exit-icon') && document.getElementById('exit-icon').style.setProperty('display', 'inline');
+        await loadStops();
+        render();
+        hideAuth();
+        setAuthMsg('', false);
+      } else {
+        // Supabase may require email confirmation before a session is available
+        setAuthMsg('Account created. Check your email and confirm before signing in.', false);
+        mode = 'signin';
+        authSubmit.textContent = 'Sign in';
+        authToggle.textContent = 'Sign up';
+      }
+    } catch (err) {
+      setAuthMsg('Error: ' + (err.message || String(err)), true);
+    }
+  });
+
+  window.signOut = async function () {
+    if (!supabaseClient) return;
+    await supabaseClient.auth.signOut();
+    currentUser = null;
+    stops = [];
+    idSequence = 0;
+    dayCollapsed = {};
+    render();
+    showAuth();
+    setAuthMsg('Signed out.', false);
+  };
+
+  /* ------------------ initialisation ------------------
+     On load: resolve session → if signed in, load from Supabase and render;
+     if not, show auth gate.  Also wire up auth listeners for session events. */
+  window.onload = async function () {
+    if (supabaseClient) {
+      supabaseClient.auth.onAuthStateChange(async function (event, session) {
+        if (session && session.user) {
+          currentUser = session.user;
+          await loadStops();
+          render();
+          hideAuth();
+        } else {
+          currentUser = null;
+          render();
+          showAuth();
+        }
+      });
+    }
+    if (supabaseClient) {
+      const { data } = await supabaseClient.auth.getSession();
+      if (data.session && data.session.user) {
+        currentUser = data.session.user;
+        await loadStops();
+        render();
+        hideAuth();
+      } else {
+        showAuth();
+      }
+    } else {
+      // Supabase not configured — show auth gate with a config warning
+      showAuth();
+      setAuthMsg('Configure Supabase: set SUPABASE_URL and SUPABASE_ANON_KEY at the top of main.html.', true);
+    }
   };
 })();
 </script>
